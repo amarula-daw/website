@@ -11,6 +11,7 @@
 import type * as awma from "../awma.js";
 import type * as crons from "../crons.js";
 import type * as entitlements from "../entitlements.js";
+import type * as marketplace from "../marketplace.js";
 import type * as server from "../server.js";
 
 import type {
@@ -23,6 +24,7 @@ declare const fullApi: ApiFromModules<{
   awma: typeof awma;
   crons: typeof crons;
   entitlements: typeof entitlements;
+  marketplace: typeof marketplace;
   server: typeof server;
 }>;
 

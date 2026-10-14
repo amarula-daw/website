@@ -643,6 +643,19 @@ body {
   background: var(--site-input);
   color: var(--site-muted);
 }
+.product-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.product-image {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 6px;
+  margin-bottom: 20px;
+}
 .product-card-content {
   padding: 20px;
 }
@@ -747,7 +760,10 @@ body {
 .product-purchase > p:not(.product-price) {
   line-height: 1.7;
 }
-.product-purchase button {
+.product-purchase button,
+.product-purchase a {
+  display: flex;
+  justify-content: center;
   margin: 24px 0;
   width: 100%;
 }

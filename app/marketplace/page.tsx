@@ -8,11 +8,12 @@ import {
   platforms,
   filterProducts,
 } from "@/lib/marketplace/catalog"
+import { listProducts } from "@/lib/marketplace/products"
 
 export const metadata: Metadata = {
   title: "Marketplace — Amarula",
   description:
-    "Preview Amarula’s marketplace for plugins, drum kits, sound kits, and presets.",
+    "Plugins, drum kits, sound kits, and presets for Amarula. Free kits install straight into the app.",
 }
 
 export default async function MarketplacePage({
@@ -27,7 +28,12 @@ export default async function MarketplacePage({
   const category = categories.find((item) => item === value("category")) ?? ""
   const format = formats.find((item) => item === value("format")) ?? ""
   const platform = platforms.find((item) => item === value("platform")) ?? ""
-  const products = filterProducts({ query, category, format, platform })
+  const products = filterProducts(await listProducts(), {
+    query,
+    category,
+    format,
+    platform,
+  })
 
   return (
     <MarketplaceShell>
@@ -51,7 +57,7 @@ export default async function MarketplacePage({
             defaultValue={query}
             maxLength={120}
             type="search"
-            placeholder="Search the preview catalog"
+            placeholder="Search the marketplace"
           />
         </label>
         <label>
@@ -87,8 +93,7 @@ export default async function MarketplacePage({
       </form>
       <div className="marketplace-results">
         <p>
-          {products.length}{" "}
-          {products.length === 1 ? "preview listing" : "preview listings"}
+          {products.length} {products.length === 1 ? "listing" : "listings"}
         </p>
         {(query || category || format || platform) && (
           <Link href="/marketplace">Clear filters</Link>

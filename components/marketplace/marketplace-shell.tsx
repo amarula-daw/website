@@ -1,9 +1,11 @@
+import Link from "next/link"
+
 export function MarketplaceShell({ children }: { children: React.ReactNode }) {
   return (
     <main className="marketplace-shell">
       <div className="marketplace-preview" role="note">
-        Marketplace preview. Example listings only; purchases and DAW downloads
-        aren’t available yet.
+        Marketplace preview. Paid plugins are sold by their makers; free kits
+        install from the Marketplace in Amarula.
       </div>
       {children}
       <footer className="marketplace-footer">
@@ -15,6 +17,8 @@ export function MarketplaceShell({ children }: { children: React.ReactNode }) {
         >
           Theme toggle by Skiper UI
         </a>
+        <Link href="/terms">Terms</Link>
+        <Link href="/privacy">Privacy</Link>
       </footer>
     </main>
   )

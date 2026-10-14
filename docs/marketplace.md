@@ -1,15 +1,13 @@
 # Marketplace foundation
 
-## Implemented prototype
+## Implemented
 
-- `/marketplace`: public fictional catalog with URL-based text, category, format, and platform filters.
-- `/marketplace/[slug]`: preview listing details, example price, compatibility, and unavailable checkout.
-- `/dashboard?section=seller`: Clerk-authenticated seller workspace (`/marketplace/sell` redirects here). Account-scoped drafts persist in local storage. Only file names and sizes are retained, never the file contents. Drafts can be exported as JSON and removed.
-- `/dashboard?section=library`: authenticated empty library (`/library` redirects here); no fabricated purchases or download links.
-- `/landing`: accessible even when signed in. Its action links to the dashboard for authenticated visitors and opens the waitlist otherwise.
-- `/dashboard`: unified workspace; `/` redirects signed-in visitors here and shows the landing page to visitors.
-
-The preview catalog is fixed data, separate from seller drafts. Local drafts are never published to other users. No payment, seller payout, asset upload, entitlement, deep link, or desktop download behavior has been implemented. No desktop files were changed.
+- **Catalog in Convex** (`convex/marketplace.ts`): `products` (listing fields, image and downloads in Convex file storage, `purchase` = free or an external store URL, `sellerId` for future sellers) and `library` (what each user has gotten). Functions are secret-gated like the rest (`CONVEX_SERVER_SECRET`).
+- **Amarula's own listings** live in `lib/marketplace/seed.ts` and are pushed with `bun scripts/marketplace-seed.ts [folder of zips]` (uses `.env.local`'s Convex URL and secret). Images are copied into storage. A free product is listed once its zip (or folder, zipped by the script) is in the folder; unchanged files aren't re-uploaded.
+- `/marketplace` and `/marketplace/[slug]` read the catalog. Paid products link to their maker's store; free ones point to the app.
+- **Desktop API:** `GET /api/marketplace/products` (public catalog) and `POST /api/marketplace/products/:slug/download { platform }` → `{ url, sha256, byteLength, install, … }` for free products. With the app's Clerk OAuth token the product is added to the user's library; without one it still downloads.
+- The desktop app (`marketplace.*` host commands) verifies size and SHA-256, unzips (refusing entries outside the target) and moves kits into `~/Music/Amarula/Marketplace/<Title>` (a browser folder) or `.vst3`/`.component` bundles into `~/Library/Audio/Plug-Ins`. Nothing in a download is executed; installers (`.pkg`) aren't supported.
+- `/dashboard?section=seller` drafts are still local-only.
 
 ## Next implementation boundaries
 

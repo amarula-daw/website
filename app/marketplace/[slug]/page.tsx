@@ -1,7 +1,8 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { MarketplaceShell } from "@/components/marketplace/marketplace-shell"
-import { previewProducts, formatPrice } from "@/lib/marketplace/catalog"
+import { formatPrice } from "@/lib/marketplace/catalog"
+import { getProduct } from "@/lib/marketplace/products"
 
 export default async function ProductPage({
   params,
@@ -9,7 +10,7 @@ export default async function ProductPage({
   params: Promise<{ slug: string }>
 }) {
   const { slug } = await params
-  const product = previewProducts.find((item) => item.slug === slug)
+  const product = await getProduct(slug)
   if (!product) notFound()
 
   return (
@@ -19,7 +20,9 @@ export default async function ProductPage({
       </Link>
       <article className="product-detail">
         <div>
-          <p className="product-kind">{product.category}</p>
+          <p className="product-kind">
+            {product.category} · {product.vendor}
+          </p>
           <h1>{product.title}</h1>
           <p className="product-description">{product.description}</p>
           <section>
@@ -42,19 +45,49 @@ export default async function ProductPage({
           </section>
         </div>
         <aside className="product-purchase">
-          <span>Example price</span>
+          {product.imageUrl && (
+            // eslint-disable-next-line @next/next/no-img-element -- Convex storage URLs
+            <img className="product-image" src={product.imageUrl} alt="" />
+          )}
+          <span>
+            {product.purchase.kind === "free" ? "Price" : "List price"}
+          </span>
           <p className="product-price">{formatPrice(product.priceCents)}</p>
-          <p>
-            This is a fictional listing for the marketplace preview. No files
-            are for sale.
-          </p>
-          <button className="waitlist-button" disabled>
-            Purchases coming later
-          </button>
-          <p className="product-delivery-note">
-            Purchased items will appear in your library. Direct downloads into
-            Amarula are planned.
-          </p>
+          {product.purchase.kind === "free" ? (
+            <>
+              <p>
+                Open the Marketplace in Amarula’s hub and choose Install: the
+                kit downloads into your browser’s Marketplace folder, ready to
+                drag into a project.
+              </p>
+              {product.sourceUrl && (
+                <a
+                  className="marketplace-secondary-button"
+                  href={product.sourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  More from {product.vendor}
+                </a>
+              )}
+            </>
+          ) : (
+            <>
+              <a
+                className="waitlist-button"
+                href={product.purchase.url}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Buy from {product.vendor}
+              </a>
+              <p className="product-delivery-note">
+                Sold and delivered by {product.vendor}; the price there may
+                differ. Install it with their installer, then Amarula finds it
+                in its next plugin scan.
+              </p>
+            </>
+          )}
         </aside>
       </article>
     </MarketplaceShell>

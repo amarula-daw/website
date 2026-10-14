@@ -1,16 +1,50 @@
 import { describe, it as test } from "node:test"
 import assert from "node:assert/strict"
-import { filterProducts } from "./catalog"
+import { filterProducts, type Product } from "./catalog"
 import { parseDrafts, listingConfigurationError } from "./drafts"
+
+const product = (
+  fields: Partial<Product> & Pick<Product, "slug">
+): Product => ({
+  id: fields.slug,
+  title: fields.slug,
+  vendor: "Vendor",
+  category: "Plugins",
+  description: "",
+  contents: [],
+  formats: ["VST3"],
+  platforms: ["macOS"],
+  requires: null,
+  priceCents: 0,
+  purchase: { kind: "free" },
+  sourceUrl: null,
+  imageUrl: null,
+  downloads: [],
+  ...fields,
+})
+
+const products = [
+  product({
+    slug: "glass-filter",
+    formats: ["VST3", "AU"],
+    platforms: ["macOS", "Windows"],
+  }),
+  product({
+    slug: "mono-synth",
+    title: "Mono Synth",
+    platforms: ["macOS", "Windows", "Linux"],
+  }),
+  product({ slug: "mono-bank", category: "Presets", formats: ["Preset"] }),
+]
 
 describe("marketplace compatibility", () => {
   test("AU results require macOS even when the product also has Windows VST3", () => {
     assert.equal(
-      filterProducts({ format: "AU", platform: "Windows" }).length,
+      filterProducts(products, { format: "AU", platform: "Windows" }).length,
       0
     )
     assert.deepEqual(
-      filterProducts({ format: "AU", platform: "macOS" }).map(
+      filterProducts(products, { format: "AU", platform: "macOS" }).map(
         (item) => item.slug
       ),
       ["glass-filter"]
@@ -18,7 +52,7 @@ describe("marketplace compatibility", () => {
   })
   test("filters compose and text search ignores case", () => {
     assert.deepEqual(
-      filterProducts({
+      filterProducts(products, {
         category: "Plugins",
         platform: "Linux",
         query: " MONO ",
@@ -26,8 +60,10 @@ describe("marketplace compatibility", () => {
       ["mono-synth"]
     )
     assert.equal(
-      filterProducts({ category: "Presets", query: "no matching title" })
-        .length,
+      filterProducts(products, {
+        category: "Presets",
+        query: "no matching title",
+      }).length,
       0
     )
   })
