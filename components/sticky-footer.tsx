@@ -1,5 +1,7 @@
 import Link from "next/link"
 
+import { PoweredByTracktion } from "@/components/legal-page"
+
 // Fancy Components' sticky-footer pattern: main is above a bottom-sticky footer.
 // https://www.fancycomponents.dev/docs/components/blocks/sticky-footer
 export function StickyFooter() {
@@ -29,7 +31,12 @@ export function StickyFooter() {
             GitHub releases
           </a>
         </nav>
+        <PoweredByTracktion />
         <div className="footer-bottom">
+          <span>
+            <Link href="/terms">Terms</Link> ·{" "}
+            <Link href="/privacy">Privacy</Link>
+          </span>
           <span>© {new Date().getFullYear()} Amarula</span>
           <a href="#main">Back to top ↑</a>
         </div>
