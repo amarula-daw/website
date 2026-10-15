@@ -3,6 +3,10 @@ import { v } from "convex/values"
 
 export const entitlement = v.object({
   active: v.boolean(),
+  // Optional: rows cached before there were two plans don't have it.
+  plan: v.optional(
+    v.union(v.literal("standard"), v.literal("extended"), v.null())
+  ),
   planPeriod: v.union(v.literal("month"), v.literal("annual"), v.null()),
   renewsAt: v.union(v.number(), v.null()),
   endsAt: v.union(v.number(), v.null()),

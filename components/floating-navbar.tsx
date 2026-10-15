@@ -15,30 +15,45 @@ export function FloatingNavbar({
   const pathname = usePathname()
   const { isLoaded, isSignedIn } = useUser()
   const signedIn = isLoaded ? Boolean(isSignedIn) : initiallySignedIn
-  const active = pathname.startsWith("/marketplace")
-    ? 1
+  const current = pathname.startsWith("/marketplace")
+    ? "/marketplace"
     : pathname === "/dashboard" ||
         pathname.startsWith("/sign-in") ||
         (pathname === "/" && signedIn)
-      ? 2
+      ? "account"
       : pathname === "/landing" || pathname === "/"
-        ? 0
-        : -1
+        ? "/landing"
+        : null
+  // The marketplace is for accepted testers until early access opens.
   const links = [
-    { label: "Home", href: "/landing", Icon: House },
-    { label: "Marketplace", href: "/marketplace", Icon: Store },
+    { label: "Home", href: "/landing", Icon: House, tab: "/landing" },
+    ...(signedIn
+      ? [
+          {
+            label: "Marketplace",
+            href: "/marketplace",
+            Icon: Store,
+            tab: "/marketplace",
+          },
+        ]
+      : []),
     {
       label: signedIn ? "Dashboard" : "Sign in",
       href: signedIn ? "/dashboard" : "/sign-in",
       Icon: PanelsTopLeft,
+      tab: "account",
     },
   ]
+  const active = links.findIndex((link) => link.tab === current)
   return (
     <header className="floating-navbar" data-signed-in={signedIn}>
       <Link className="floating-brand" href="/landing">
         Amarula
       </Link>
-      <nav aria-label="Main navigation">
+      <nav
+        aria-label="Main navigation"
+        style={{ "--tabs": links.length } as React.CSSProperties}
+      >
         <span
           className="navbar-tab-indicator"
           aria-hidden="true"

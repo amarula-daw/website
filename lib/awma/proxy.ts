@@ -4,6 +4,7 @@ import { api } from "@/convex/_generated/api"
 import { costMicros, PRICES, type Usage } from "@/lib/awma/pricing"
 import { getEntitlement, type Entitlement } from "@/lib/desktop/entitlement"
 import { convexMutation, convexQuery } from "@/lib/desktop/convex"
+import { getDawPlan } from "@/lib/daw-subscription"
 
 /*
  * Awma's requests to Claude, through the website: the desktop app's Awma
@@ -13,8 +14,6 @@ import { convexMutation, convexQuery } from "@/lib/desktop/convex"
  * subscription and is within its limits.
  */
 
-/** What the subscription includes each month, in dollars of Anthropic usage. */
-export const MONTHLY_BUDGET_MICROS = 15_000_000
 /** The largest response one request may ask for. */
 const MAX_OUTPUT_TOKENS = 32_000
 /** The largest request body accepted. */
@@ -24,7 +23,10 @@ const ANTHROPIC_URL = "https://api.anthropic.com"
 type Limited = { error: Response }
 type Allowed = {
   userId: string
-  entitlement: Entitlement & { usageWindow: { start: number; end: number } }
+  entitlement: Entitlement & {
+    plan: NonNullable<Entitlement["plan"]>
+    usageWindow: { start: number; end: number }
+  }
 }
 
 /** An error in the Messages API's own shape, so Claude Code shows the message. */
@@ -72,7 +74,7 @@ export async function authorize(
 
   const { userId } = session
   const entitlement = await getEntitlement(userId)
-  if (!entitlement.active || !entitlement.usageWindow)
+  if (!entitlement.active || !entitlement.plan || !entitlement.usageWindow)
     return {
       error: apiError(
         403,
@@ -92,7 +94,7 @@ export async function authorize(
 
   if (checkBudget) {
     const used = await getUsageMicros(userId, entitlement.usageWindow.start)
-    if (used >= MONTHLY_BUDGET_MICROS)
+    if (used >= getDawPlan(entitlement.plan).awmaBudgetMicros)
       // Not a 429: Claude Code would keep retrying.
       return {
         error: apiError(

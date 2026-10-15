@@ -23,15 +23,15 @@ bun run dev
 
 The **development** Clerk application has been claimed and linked to the project. Its keys are in the ignored `.env.local`, with CLI state in the ignored `.clerk/` directory. Keep this application so the waitlist and eventual user accounts share an identity system.
 
-The homepage opens Clerk's native waitlist modal. `/waitlist` is a standalone waitlist page. Clerk stores entries and handles confirmation and invitation emails. In the Clerk Dashboard, keep **Access mode → Waitlist** and email authentication enabled. Approve testers from the Waitlist section; their invitation allows them to create an account. Until then, public sign-up is restricted by Clerk. `/sign-in` uses Clerk's native flow; ordinary `/sign-up` visits redirect to `/waitlist`, while invitation tickets retain the native signup flow. `/account` requires an authenticated session and redirects to the dashboard’s Profile & security section.
+The homepage opens Clerk's native waitlist modal. `/waitlist` is a standalone waitlist page. Clerk stores entries and handles confirmation and invitation emails. In the Clerk Dashboard, keep **Access mode → Waitlist** and email authentication enabled. Approve testers from the Waitlist section; their invitation allows them to create an account. Until then, public sign-up is restricted by Clerk. `/sign-in` uses Clerk's native flow; ordinary `/sign-up` visits redirect to `/waitlist`, while invitation tickets retain the native signup flow. `/account` requires an authenticated session and redirects to the dashboard’s Profile & security section. Until early access opens, `proxy.ts` shows signed-out visitors only the landing page, the waitlist, sign-in and sign-up, and the Terms and Privacy pages; every other page (marketplace and dashboard included) redirects them to `/`, and the navbar and footer hide their links. API routes do their own auth.
 
 For deployment, create the production instance of the same Clerk application, configure its domain and waitlist access mode, and add its production keys to the hosting environment. `.env.example` lists the required names. Do not deploy with development keys.
 
 ## DAW subscriptions
 
-Amarula has one paid user plan with two billing periods: **USD $20/month** or **USD $200/year** (saving $40 versus twelve monthly payments). The subscription covers DAW access and Awma AI usage. There is no free DAW tier or free trial. Clerk's default identity account does not grant DAW access.
+Amarula has two paid user plans, each billed monthly or yearly: **Standard**, USD $20/month or $204/year with $10 of Awma usage a month, and **Extended**, USD $50/month or $540/year with $40 of Awma usage a month (`lib/daw-subscription.ts`). Either one covers DAW access and Awma AI usage. There is no free DAW tier or free trial. Clerk's default identity account does not grant DAW access.
 
-In **ama-web → Development → Billing → Subscription plans**, create a paid user plan with those monthly and yearly prices and free trial disabled. Configure Stripe before production checkout. Put that plan ID in `CLERK_DAW_PLAN_ID` and set `CLERK_BILLING_ENABLED=true` only when checkout is ready. The dashboard verifies the plan's currency, prices, paid status, and absence of a free trial before enabling Clerk CheckoutButton. Until then, the two paid prices are visible but checkout is unavailable. Clerk's default free plan is never offered by this website's subscription UI.
+In **ama-web → Development → Billing → Subscription plans**, create both paid user plans with those monthly and yearly prices and free trial disabled. Configure Stripe before production checkout. Put their plan IDs in `CLERK_DAW_STANDARD_PLAN_ID` and `CLERK_DAW_EXTENDED_PLAN_ID` and set `CLERK_BILLING_ENABLED=true` only when checkout is ready. The dashboard verifies each plan's currency, prices, paid status, and absence of a free trial before enabling its Clerk CheckoutButton. Until then, the prices are visible but checkout is unavailable. Clerk's default free plan is never offered by this website's subscription UI.
 
 The current Clerk API exposes listing plans but not creating them; the remote paid plan still needs to be created in the Clerk Dashboard. No price has been applied to the default Free plan.
 
@@ -45,7 +45,7 @@ Profile & security uses inline forms rather than Clerk UserProfile: names, profi
 
 ## Desktop sign-in and Awma
 
-The desktop app signs in with this Clerk application (OAuth device authorization) and asks `GET /api/desktop/entitlement` whether the DAW subscription is active. Awma's requests to Claude go through `/api/awma/v1/messages`, which checks the subscription, rate limits and a $15 monthly allowance per subscriber, and holds the Anthropic API key. See [docs/desktop.md](docs/desktop.md) for the safeguards and setup (Convex, `ANTHROPIC_API_KEY`, and the desktop OAuth application).
+The desktop app signs in with this Clerk application (OAuth device authorization) and asks `GET /api/desktop/entitlement` whether the DAW subscription is active. Awma's requests to Claude go through `/api/awma/v1/messages`, which checks the subscription, rate limits and the plan's monthly Awma allowance, and holds the Anthropic API key. See [docs/desktop.md](docs/desktop.md) for the safeguards and setup (Convex, `ANTHROPIC_API_KEY`, and the desktop OAuth application).
 
 ## Source attribution
 

@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import Link from "next/link"
 
 import { LegalPage } from "@/components/legal-page"
-import { MONTHLY_BUDGET_MICROS } from "@/lib/awma/proxy"
+import { dawPlans } from "@/lib/daw-subscription"
 import { legal } from "@/lib/legal"
 
 export const metadata: Metadata = {
@@ -10,7 +10,9 @@ export const metadata: Metadata = {
   description: "The terms for using Amarula, Awma and the Amarula website.",
 }
 
-const allowance = `$${MONTHLY_BUDGET_MICROS / 1_000_000}`
+const allowance = dawPlans
+  .map((plan) => `$${plan.awmaBudgetMicros / 1_000_000} (${plan.name})`)
+  .join(" or ")
 
 export default function TermsPage() {
   return (

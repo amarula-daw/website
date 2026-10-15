@@ -6,7 +6,12 @@ import { clerkClient } from "@clerk/nextjs/server"
 import { SubscriptionOptions } from "@/components/subscription-options"
 import { SellerStudio } from "@/components/marketplace/seller-studio"
 import { type DashboardSection } from "@/lib/dashboard"
-import { matchesDawPlan } from "@/lib/daw-subscription"
+import {
+  dawPlanId,
+  dawPlans,
+  matchesDawPlan,
+  type DawPlanKey,
+} from "@/lib/daw-subscription"
 
 const labels = {
   overview: "Overview",
@@ -26,11 +31,11 @@ export async function AccountDashboard({
   const preferenceCookie = `amarula-sidebar-${userId}`
   const initiallyExpanded =
     (await cookies()).get(preferenceCookie)?.value !== "collapsed"
-  let planId: string | null = null
+  const planIds: Partial<Record<DawPlanKey, string>> = {}
   if (
     (section === "overview" || section === "subscription") &&
     process.env.CLERK_BILLING_ENABLED === "true" &&
-    process.env.CLERK_DAW_PLAN_ID
+    dawPlans.some((plan) => dawPlanId(plan.key))
   ) {
     try {
       const client = await clerkClient()
@@ -38,10 +43,13 @@ export async function AccountDashboard({
         payerType: "user",
         limit: 100,
       })
-      const plan = plans.data.find(
-        (item) => item.id === process.env.CLERK_DAW_PLAN_ID
-      )
-      if (plan && matchesDawPlan(plan)) planId = plan.id
+      for (const dawPlan of dawPlans) {
+        const plan = plans.data.find(
+          (item) => item.id === dawPlanId(dawPlan.key)
+        )
+        if (plan && matchesDawPlan(plan, dawPlan))
+          planIds[dawPlan.key] = plan.id
+      }
     } catch {
       /* Keep checkout unavailable when its price cannot be verified. */
     }
@@ -80,7 +88,7 @@ export async function AccountDashboard({
                   <p>Plugins, kits, and presets</p>
                 </article>
               </div>
-              <SubscriptionOptions planId={planId} />
+              <SubscriptionOptions planIds={planIds} />
               <div className="dashboard-overview-links">
                 <Link href="/dashboard?section=library">
                   <h2>Your library</h2>
@@ -96,7 +104,7 @@ export async function AccountDashboard({
             </>
           )}
           {section === "subscription" && (
-            <SubscriptionOptions planId={planId} />
+            <SubscriptionOptions planIds={planIds} />
           )}
           {section === "library" && (
             <section className="dashboard-library">

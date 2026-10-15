@@ -7,11 +7,11 @@ holds the Anthropic API key.
 
 ## Endpoints
 
-| Route | What |
-| --- | --- |
-| `GET /api/desktop/entitlement` | Who the OAuth token belongs to, whether their subscription (`CLERK_DAW_PLAN_ID`) is active, and this month's Awma usage. The app checks it on sign-in and every 30 minutes. |
-| `POST /api/awma/v1/messages` | Claude's Messages API for Awma, metered (`lib/awma/proxy.ts`). Awma's Claude Agent SDK uses `<origin>/api/awma` as its `ANTHROPIC_BASE_URL`. |
-| `POST /api/awma/v1/messages/count_tokens` | Token counting for Awma (free, subscribers only). |
+| Route                                     | What                                                                                                                                                                                                                                      |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/desktop/entitlement`            | Who the OAuth token belongs to, whether their subscription (`CLERK_DAW_STANDARD_PLAN_ID` or `CLERK_DAW_EXTENDED_PLAN_ID`) is active and which plan it is, and this month's Awma usage. The app checks it on sign-in and every 30 minutes. |
+| `POST /api/awma/v1/messages`              | Claude's Messages API for Awma, metered (`lib/awma/proxy.ts`). Awma's Claude Agent SDK uses `<origin>/api/awma` as its `ANTHROPIC_BASE_URL`.                                                                                              |
+| `POST /api/awma/v1/messages/count_tokens` | Token counting for Awma (free, subscribers only).                                                                                                                                                                                         |
 
 Both take the Clerk **OAuth access token** the app gets from the device flow, as `Authorization: Bearer`.
 
@@ -19,13 +19,13 @@ Both take the Clerk **OAuth access token** the app gets from the device flow, as
 
 Every Awma request is checked before it reaches Anthropic:
 
-- **Signed in** with a valid Clerk OAuth token, and an **active subscription** to the DAW plan (canceled ones run to the end of their period). Entitlements are cached for five minutes.
-- **Monthly allowance:** $15 of Anthropic usage per subscriber per month, counted from the subscription's period start (annual plans get a fresh allowance each month). Each response's cost is worked out from the usage Anthropic reports (`lib/awma/pricing.ts`, including cache reads and writes) and added up in Convex (`convex/awma.ts`), streamed replies included, and even when the app stops reading part way. At the limit, requests fail with a message saying when it resets; the app shows usage in Settings → Account.
+- **Signed in** with a valid Clerk OAuth token, and an **active subscription** to a DAW plan (canceled ones run to the end of their period). Entitlements are cached for five minutes.
+- **Monthly allowance:** $10 (Standard) or $40 (Extended) of Anthropic usage per subscriber per month (`lib/daw-subscription.ts`), counted from the subscription's period start (annual plans get a fresh allowance each month). Each response's cost is worked out from the usage Anthropic reports (`lib/awma/pricing.ts`, including cache reads and writes) and added up in Convex (`convex/awma.ts`), streamed replies included, and even when the app stops reading part way. At the limit, requests fail with a message saying when it resets; the app shows usage in Settings → Account.
 - **Rate limits:** 30 requests a minute and 1,500 a day per user (token buckets), and at most 2 running at once.
 - **Request limits:** only Awma's models (`claude-sonnet-5-5`, and `claude-haiku-5-5` for Claude Code's small background calls), responses capped at 32K tokens, bodies at 4 MB.
 - The server's Anthropic key is never sent to the app, and Anthropic's authentication errors are reported as a generic service error.
 
-A request that starts under the allowance can overshoot it by its own cost (at most two at once), so the effective cap is slightly above $15 in the worst case.
+A request that starts under the allowance can overshoot it by its own cost (at most two at once), so the effective cap is slightly above the allowance in the worst case.
 
 ## Setup
 
@@ -43,6 +43,7 @@ A request that starts under the allowance can overshoot it by its own cost (at m
    ```
 
    Note its client ID, and the instance's Frontend API URL (Clerk Dashboard → API keys, e.g. `https://clerk.amarula.app`).
+
 4. **The desktop build:** in the desktop repository's GitHub settings → Actions variables, set `AMARULA_ACCOUNT_URL` (this website's origin), `AMARULA_CLERK_URL` (the Frontend API URL) and `AMARULA_CLERK_CLIENT_ID`. Release and nightly builds compile them in.
 
 Use the development Clerk instance and a local website (`AMARULA_ACCOUNT_URL=http://localhost:3000`, set in the environment when launching the app) to try it before production.

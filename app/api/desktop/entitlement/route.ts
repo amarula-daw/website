@@ -1,6 +1,7 @@
 import { auth, clerkClient } from "@clerk/nextjs/server"
 
-import { getUsageMicros, MONTHLY_BUDGET_MICROS } from "@/lib/awma/proxy"
+import { getUsageMicros } from "@/lib/awma/proxy"
+import { getDawPlan } from "@/lib/daw-subscription"
 import { getEntitlement } from "@/lib/desktop/entitlement"
 
 const iso = (time: number | null) =>
@@ -21,9 +22,12 @@ export async function GET() {
     client.users.getUser(session.userId),
     getEntitlement(session.userId),
   ])
-  const window = entitlement.usageWindow
+  const window = entitlement.plan ? entitlement.usageWindow : null
   const usedMicros = window
     ? await getUsageMicros(session.userId, window.start)
+    : 0
+  const budgetMicros = entitlement.plan
+    ? getDawPlan(entitlement.plan).awmaBudgetMicros
     : 0
 
   return Response.json(
@@ -35,6 +39,7 @@ export async function GET() {
       },
       subscription: {
         active: entitlement.active,
+        plan: entitlement.plan,
         planPeriod: entitlement.planPeriod,
         renewsAt: iso(entitlement.renewsAt),
         endsAt: iso(entitlement.endsAt),
@@ -43,9 +48,9 @@ export async function GET() {
         ? {
             usedCents: Math.min(
               Math.ceil(usedMicros / 10_000),
-              MONTHLY_BUDGET_MICROS / 10_000
+              budgetMicros / 10_000
             ),
-            limitCents: MONTHLY_BUDGET_MICROS / 10_000,
+            limitCents: budgetMicros / 10_000,
             resetsAt: iso(window.end),
           }
         : null,

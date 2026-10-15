@@ -1,10 +1,12 @@
 import Link from "next/link"
+import { auth } from "@clerk/nextjs/server"
 
 import { PoweredByTracktion } from "@/components/legal-page"
 
 // Fancy Components' sticky-footer pattern: main is above a bottom-sticky footer.
 // https://www.fancycomponents.dev/docs/components/blocks/sticky-footer
-export function StickyFooter() {
+export async function StickyFooter() {
+  const { userId } = await auth()
   return (
     <footer id="footer" className="sticky-footer">
       <div className="footer-details">
@@ -14,8 +16,14 @@ export function StickyFooter() {
         </div>
         <nav aria-label="Footer">
           <Link href="/waitlist">Early access</Link>
-          <Link href="/dashboard">Your account</Link>
-          <Link href="/marketplace">Marketplace</Link>
+          {userId ? (
+            <>
+              <Link href="/dashboard">Your account</Link>
+              <Link href="/marketplace">Marketplace</Link>
+            </>
+          ) : (
+            <Link href="/sign-in">Sign in</Link>
+          )}
           <a
             href="https://skiper-ui.com/v1/skiper4"
             target="_blank"

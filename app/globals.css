@@ -1373,7 +1373,7 @@ body {
 .floating-navbar nav {
   position: relative;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(var(--tabs, 3), minmax(0, 1fr));
   gap: 0;
 }
 .floating-navbar nav a {
@@ -1390,7 +1390,7 @@ body {
 .navbar-tab-indicator {
   position: absolute;
   inset: 0 auto 0 0;
-  width: calc(100% / 3);
+  width: calc(100% / var(--tabs, 3));
   border-radius: 999px;
   background: color-mix(in srgb, var(--site-input) 75%, transparent);
   transition:
