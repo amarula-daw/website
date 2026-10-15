@@ -78,6 +78,15 @@ export const productFields = {
   sellerId: v.union(v.string(), v.null()),
 }
 
+export const battleStatus = v.union(
+  v.literal("lobby"),
+  v.literal("kitVote"),
+  v.literal("making"),
+  v.literal("listening"),
+  v.literal("results"),
+  v.literal("closed")
+)
+
 export default defineSchema({
   /** Marketplace listings. */
   products: defineTable({
@@ -120,4 +129,93 @@ export default defineSchema({
   })
     .index("by_user", ["userId"])
     .index("by_expiry", ["expiresAt"]),
+
+  /**
+   * Beat battles: a lobby picks a marketplace kit, makes beats against the
+   * clock, then rates each other's anonymously. Rules in battleRules.ts.
+   */
+  battles: defineTable({
+    /** Invite code, unique among battles that aren't closed. */
+    code: v.string(),
+    hostId: v.string(),
+    status: battleStatus,
+    minutes: v.number(),
+    /** Whether players may use Awma; submissions say whether they did. */
+    awma: v.boolean(),
+    /** The kits on offer in the kit vote, then the one chosen (null: no free kits listed). */
+    kitOptions: v.array(v.id("products")),
+    kitId: v.union(v.id("products"), v.null()),
+    /** When the current phase ends (ms); null in the lobby and after. */
+    phaseEndsAt: v.union(v.number(), v.null()),
+    /** When the making phase's clock runs out; uploads get a short grace period after. */
+    submitBy: v.union(v.number(), v.null()),
+    createdAt: v.number(),
+  })
+    .index("by_code_and_status", ["code", "status"])
+    .index("by_status_and_createdAt", ["status", "createdAt"]),
+
+  battlePlayers: defineTable({
+    battleId: v.id("battles"),
+    userId: v.string(),
+    name: v.string(),
+    joinedAt: v.number(),
+    /** Set when they leave after the battle started; they're kept for the results. */
+    leftAt: v.union(v.number(), v.null()),
+  })
+    .index("by_battleId_and_userId", ["battleId", "userId"])
+    .index("by_userId", ["userId"]),
+
+  battleKitVotes: defineTable({
+    battleId: v.id("battles"),
+    userId: v.string(),
+    productId: v.id("products"),
+  }).index("by_battleId_and_userId", ["battleId", "userId"]),
+
+  battleSubmissions: defineTable({
+    battleId: v.id("battles"),
+    userId: v.string(),
+    storageId: v.id("_storage"),
+    fileName: v.string(),
+    byteLength: v.number(),
+    sha256: v.string(),
+    contentType: v.string(),
+    usedAwma: v.boolean(),
+    submittedAt: v.number(),
+    /** Listening order, shuffled when listening starts. */
+    order: v.number(),
+    /** Filled in when the results are in. */
+    result: v.union(
+      v.object({
+        average: v.union(v.number(), v.null()),
+        votes: v.number(),
+        rank: v.number(),
+        points: v.number(),
+      }),
+      v.null()
+    ),
+  })
+    .index("by_battleId_and_userId", ["battleId", "userId"])
+    .index("by_battleId_and_order", ["battleId", "order"]),
+
+  battleVotes: defineTable({
+    battleId: v.id("battles"),
+    voterId: v.string(),
+    submissionId: v.id("battleSubmissions"),
+    score: v.number(),
+  }).index("by_battleId_and_voterId_and_submissionId", [
+    "battleId",
+    "voterId",
+    "submissionId",
+  ]),
+
+  /** Each player's battle record, for the leaderboard. */
+  battleStats: defineTable({
+    userId: v.string(),
+    name: v.string(),
+    battles: v.number(),
+    wins: v.number(),
+    points: v.number(),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_points", ["points"]),
 })
