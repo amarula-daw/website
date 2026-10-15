@@ -20,4 +20,9 @@ export const cleanUp = internalMutation({
 
 const crons = cronJobs()
 crons.hourly("clean up expired rows", { minuteUTC: 0 }, internal.crons.cleanUp)
+crons.interval(
+  "close stale battle lobbies",
+  { hours: 1 },
+  internal.battles.closeStale
+)
 export default crons

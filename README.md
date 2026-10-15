@@ -47,6 +47,10 @@ Profile & security uses inline forms rather than Clerk UserProfile: names, profi
 
 The desktop app signs in with this Clerk application (OAuth device authorization) and asks `GET /api/desktop/entitlement` whether the DAW subscription is active. Awma's requests to Claude go through `/api/awma/v1/messages`, which checks the subscription, rate limits and the plan's monthly Awma allowance, and holds the Anthropic API key. See [docs/desktop.md](docs/desktop.md) for the safeguards and setup (Convex, `ANTHROPIC_API_KEY`, and the desktop OAuth application).
 
+## Beat battles
+
+The desktop app's beat battles (a lobby votes on a free kit, makes beats against the clock, then rates them anonymously) run on Convex behind `/api/battles/*`. See [docs/battles.md](docs/battles.md).
+
 ## Source attribution
 
 - [Analytics Dashboard](https://www.obsidianui.dev/docs/analytics-dashboard): ObsidianUI by Atharv, used as the layout reference for Amarula’s adapted window, rail, and cards.

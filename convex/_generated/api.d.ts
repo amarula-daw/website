@@ -9,6 +9,8 @@
  */
 
 import type * as awma from "../awma.js";
+import type * as battleRules from "../battleRules.js";
+import type * as battles from "../battles.js";
 import type * as crons from "../crons.js";
 import type * as entitlements from "../entitlements.js";
 import type * as marketplace from "../marketplace.js";
@@ -22,6 +24,8 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   awma: typeof awma;
+  battleRules: typeof battleRules;
+  battles: typeof battles;
   crons: typeof crons;
   entitlements: typeof entitlements;
   marketplace: typeof marketplace;
