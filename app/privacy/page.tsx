@@ -48,6 +48,16 @@ export default function PrivacyPage() {
           receive your audio.
         </li>
         <li>
+          <strong>App usage analytics, if you agree:</strong> which features and
+          Awma tools you use and how often they fail, how long the app takes to
+          open, CPU load while playing, project size (counts of tracks, clips
+          and plugins), crashes, and the app version and operating system, under
+          a random ID that isn’t linked to your account. Never your projects,
+          their names, file names, plugin settings or audio. The app asks first,
+          and you can turn this off in Settings → Privacy, which deletes
+          anything not yet sent.
+        </li>
+        <li>
           <strong>Website analytics:</strong> pages visited and page
           performance, collected without cookies and without identifying you.
         </li>
@@ -96,7 +106,7 @@ export default function PrivacyPage() {
         </li>
         <li>
           {external("https://www.convex.dev/legal/privacy", "Convex")}: usage
-          records, rate limits and subscription checks.
+          records, rate limits, subscription checks and app usage analytics.
         </li>
         <li>
           {external("https://vercel.com/legal/privacy-policy", "Vercel")}:

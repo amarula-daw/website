@@ -16,6 +16,15 @@ export const entitlement = v.object({
   ),
 })
 
+/** Keep in sync with AnalyticsEvent in the desktop app's packages/protocol. */
+export const analyticsEventName = v.union(
+  v.literal("app.launched"),
+  v.literal("app.crashed"),
+  v.literal("command.used"),
+  v.literal("action.used"),
+  v.literal("usage.summary")
+)
+
 export const productCategory = v.union(
   v.literal("Plugins"),
   v.literal("Drum kits"),
@@ -27,6 +36,19 @@ export const productFormat = v.union(
   v.literal("AU"),
   v.literal("WAV"),
   v.literal("Preset")
+)
+/**
+ * What an effect does, so the desktop app (and Awma) can find, say, a
+ * reverb. Keep in sync with EFFECT_TYPES in the desktop app's
+ * packages/protocol.
+ */
+export const effectType = v.union(
+  v.literal("eq"),
+  v.literal("compressor"),
+  v.literal("limiter"),
+  v.literal("reverb"),
+  v.literal("delay"),
+  v.literal("filter")
 )
 export const productPlatform = v.union(
   v.literal("macOS"),
@@ -65,6 +87,8 @@ export const productFields = {
   formats: v.array(productFormat),
   platforms: v.array(productPlatform),
   requires: v.union(v.string(), v.null()),
+  /** For effect plugins: what they do. Optional: older listings don't have it. */
+  effectTypes: v.optional(v.array(effectType)),
   /** In US cents; 0 when free. For external purchases, the seller's list price when it was added. */
   priceCents: v.number(),
   purchase,
@@ -119,6 +143,27 @@ export default defineSchema({
   /** Awma requests in flight, for the per-user concurrency limit. */
   running: defineTable({ userId: v.string(), expiresAt: v.number() })
     .index("by_user", ["userId", "expiresAt"])
+    .index("by_expiry", ["expiresAt"]),
+
+  /**
+   * The desktop app's anonymous, opt-in usage analytics, one row per event
+   * (docs/analytics.md). installId is random per install and unrelated to
+   * the account.
+   */
+  analyticsEvents: defineTable({
+    installId: v.string(),
+    name: analyticsEventName,
+    /** When it happened, per the app (ms). */
+    at: v.number(),
+    props: v.record(v.string(), v.union(v.string(), v.number(), v.boolean())),
+    appVersion: v.string(),
+    platform: v.string(),
+    os: v.string(),
+    arch: v.string(),
+    expiresAt: v.number(),
+  })
+    .index("by_name_and_at", ["name", "at"])
+    .index("by_installId_and_at", ["installId", "at"])
     .index("by_expiry", ["expiresAt"]),
 
   /** Subscription checks, reused for a few minutes before asking Clerk again. */

@@ -9,6 +9,16 @@ export const platforms = ["macOS", "Windows", "Linux"] as const
 export type Platform = (typeof platforms)[number]
 export const formats = ["VST3", "AU", "WAV", "Preset"] as const
 export type ProductFormat = (typeof formats)[number]
+/** What an effect plugin does (convex/schema.ts' effectType). */
+export const effectTypes = [
+  "eq",
+  "compressor",
+  "limiter",
+  "reverb",
+  "delay",
+  "filter",
+] as const
+export type EffectType = (typeof effectTypes)[number]
 
 /** A marketplace listing, as lib/marketplace/products.ts returns it. */
 export type Product = {
@@ -22,6 +32,8 @@ export type Product = {
   formats: ProductFormat[]
   platforms: Platform[]
   requires: string | null
+  /** For effect plugins: what they do; empty for everything else. */
+  effectTypes: EffectType[]
   priceCents: number
   purchase: { kind: "free" } | { kind: "external"; url: string }
   sourceUrl: string | null

@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as analytics from "../analytics.js";
 import type * as awma from "../awma.js";
 import type * as battleRules from "../battleRules.js";
 import type * as battles from "../battles.js";
@@ -23,6 +24,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  analytics: typeof analytics;
   awma: typeof awma;
   battleRules: typeof battleRules;
   battles: typeof battles;

@@ -13,6 +13,8 @@ holds the Anthropic API key.
 | `POST /api/awma/v1/messages`              | Claude's Messages API for Awma, metered (`lib/awma/proxy.ts`). Awma's Claude Agent SDK uses `<origin>/api/awma` as its `ANTHROPIC_BASE_URL`.                                                                                              |
 | `POST /api/awma/v1/messages/count_tokens` | Token counting for Awma (free, subscribers only).                                                                                                                                                                                         |
 
+The app's anonymous, opt-in usage analytics go to `POST /api/desktop/analytics` (no sign-in); see [analytics.md](analytics.md).
+
 Both take the Clerk **OAuth access token** the app gets from the device flow, as `Authorization: Bearer`.
 
 ## Safeguards

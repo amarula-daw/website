@@ -116,7 +116,7 @@ try {
         const same = existing?.artifacts.find((item) => item.sha256 === sha256)
         artifacts = [
           {
-            platform: "any" as const,
+            platform: download.platform ?? ("any" as const),
             install: download.install,
             storageId:
               same?.storageId ??
@@ -140,6 +140,7 @@ try {
       secret,
       product: {
         ...fields,
+        effectTypes: fields.effectTypes ?? [],
         purchase: storeUrl
           ? { kind: "external", url: storeUrl }
           : { kind: "free" },
