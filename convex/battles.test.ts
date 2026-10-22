@@ -200,6 +200,22 @@ describe("beat battles", () => {
         { name: "Bob", battles: 1, wins: 0, points: 0 },
       ]
     )
+
+    // The audio is deleted a day after the results; the results stay.
+    const files = await t.run(async (ctx) => {
+      const submissions = await ctx.db.query("battleSubmissions").collect()
+      return submissions.map((submission) => submission.storageId!)
+    })
+    await t.mutation(internal.battles.deleteBeats, {
+      battleId: await battleId(code),
+    })
+    battle = await view("ann", code)
+    assert.ok(battle.beats.every((beat) => beat.url === null && beat.result))
+    for (const file of files)
+      assert.equal(
+        await t.run((ctx) => ctx.db.system.get("_storage", file)),
+        null
+      )
     assert.equal(
       await t.query(api.battles.current, { secret, userId: "ann" }),
       null

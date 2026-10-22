@@ -24,7 +24,10 @@ these routes.
    per beat, at least 5 minutes.
 5. **Results.** Beats ranked by average score (ties share a rank), names
    revealed. Each beat earns a point per beat ranked below it, added to the
-   player's leaderboard row with their battles and wins.
+   player's leaderboard row with their battles and wins. The beats' audio is
+   deleted a day later (or as soon as everyone leaves a battle before the
+   results), so their `url` is null after that; the app keeps the copies it
+   downloaded.
 
 Every phase ends early once every player still in the battle is done with it.
 

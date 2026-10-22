@@ -44,8 +44,12 @@ hold events from earlier launches):
   than 90 days are refused.
 - 30 batches an hour per install (bursts up to 60). Answers `204`, `400` for a
   malformed batch, `413` over 512 KB, `429` over the limit.
-- Stored in Convex (`analyticsEvents`, one row per event, with the batch's
-  app fields) and deleted after 400 days.
+- Stored in Convex (`analyticsDays`) merged, to stay within the free plan's
+  database storage: one row per install, UTC day and app version, holding an
+  entry per event name and string/boolean props (e.g. per command and
+  caller) with how many events it merged (`count`). Numeric props are summed
+  (props ending in `Max` keep the largest), so averages are the sum over
+  `count`. Rows are deleted 400 days after their day.
 
 ## Events
 

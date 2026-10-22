@@ -9,6 +9,7 @@
  */
 
 import type * as analytics from "../analytics.js";
+import type * as analyticsRollup from "../analyticsRollup.js";
 import type * as awma from "../awma.js";
 import type * as battleRules from "../battleRules.js";
 import type * as battles from "../battles.js";
@@ -25,6 +26,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   analytics: typeof analytics;
+  analyticsRollup: typeof analyticsRollup;
   awma: typeof awma;
   battleRules: typeof battleRules;
   battles: typeof battles;

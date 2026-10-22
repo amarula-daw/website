@@ -146,24 +146,34 @@ export default defineSchema({
     .index("by_expiry", ["expiresAt"]),
 
   /**
-   * The desktop app's anonymous, opt-in usage analytics, one row per event
-   * (docs/analytics.md). installId is random per install and unrelated to
-   * the account.
+   * The desktop app's anonymous, opt-in usage analytics (docs/analytics.md):
+   * one row per install, UTC day and app version, merging that day's events
+   * (convex/analyticsRollup.ts). installId is random per install and
+   * unrelated to the account.
    */
-  analyticsEvents: defineTable({
+  analyticsDays: defineTable({
     installId: v.string(),
-    name: analyticsEventName,
-    /** When it happened, per the app (ms). */
-    at: v.number(),
-    props: v.record(v.string(), v.union(v.string(), v.number(), v.boolean())),
+    /** The start of the UTC day (ms). */
+    day: v.number(),
     appVersion: v.string(),
     platform: v.string(),
     os: v.string(),
     arch: v.string(),
+    events: v.array(
+      v.object({
+        name: analyticsEventName,
+        labels: v.record(v.string(), v.union(v.string(), v.boolean())),
+        count: v.number(),
+        values: v.record(v.string(), v.number()),
+      })
+    ),
     expiresAt: v.number(),
   })
-    .index("by_name_and_at", ["name", "at"])
-    .index("by_installId_and_at", ["installId", "at"])
+    .index("by_installId_and_day_and_appVersion", [
+      "installId",
+      "day",
+      "appVersion",
+    ])
     .index("by_expiry", ["expiresAt"]),
 
   /** Subscription checks, reused for a few minutes before asking Clerk again. */
@@ -219,7 +229,8 @@ export default defineSchema({
   battleSubmissions: defineTable({
     battleId: v.id("battles"),
     userId: v.string(),
-    storageId: v.id("_storage"),
+    /** The beat's audio; null once it's deleted after the battle. */
+    storageId: v.union(v.id("_storage"), v.null()),
     fileName: v.string(),
     byteLength: v.number(),
     sha256: v.string(),

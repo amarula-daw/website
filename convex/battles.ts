@@ -10,6 +10,7 @@ import {
   type QueryCtx,
 } from "./_generated/server"
 import {
+  BEAT_RETENTION_MS,
   battleLengths,
   KIT_OPTIONS,
   KIT_VOTE_MS,
@@ -222,7 +223,28 @@ async function finish(ctx: MutationCtx, battle: Battle) {
     status: "results",
     phaseEndsAt: null,
   })
+  await ctx.scheduler.runAfter(
+    BEAT_RETENTION_MS,
+    internal.battles.deleteBeats,
+    { battleId: battle._id }
+  )
 }
+
+/** Deletes a finished battle's audio, keeping the submissions for the results. */
+async function deleteBeatFiles(ctx: MutationCtx, battleId: Id<"battles">) {
+  for (const submission of await submissionsOf(ctx, battleId)) {
+    if (!submission.storageId) continue
+    await ctx.storage.delete(submission.storageId)
+    await ctx.db.patch("battleSubmissions", submission._id, {
+      storageId: null,
+    })
+  }
+}
+
+export const deleteBeats = internalMutation({
+  args: { battleId: v.id("battles") },
+  handler: (ctx, { battleId }) => deleteBeatFiles(ctx, battleId),
+})
 
 /** Ends the current phase early once every active player is done with it. */
 async function maybeAdvance(ctx: MutationCtx, battleId: Id<"battles">) {
@@ -230,11 +252,13 @@ async function maybeAdvance(ctx: MutationCtx, battleId: Id<"battles">) {
   if (!battle) return
   const active = (await playersOf(ctx, battle._id)).filter(isActive)
   if (active.length === 0) {
-    if (battle.status !== "results")
+    if (battle.status !== "results") {
       await ctx.db.patch("battles", battle._id, {
         status: "closed",
         phaseEndsAt: null,
       })
+      await deleteBeatFiles(ctx, battle._id)
+    }
     return
   }
   const done = (userIds: Set<string>) =>
@@ -538,7 +562,7 @@ export const submit = mutation({
       .unique()
     if (existing?.storageId === fileId) return { error: null }
     if (existing) {
-      await ctx.storage.delete(existing.storageId)
+      if (existing.storageId) await ctx.storage.delete(existing.storageId)
       await ctx.db.patch("battleSubmissions", existing._id, fields)
     } else
       await ctx.db.insert("battleSubmissions", {
@@ -654,7 +678,9 @@ export const get = query({
         beats.push({
           id: submission._id,
           label: trackLabel(i),
-          url: await ctx.storage.getUrl(submission.storageId),
+          url: submission.storageId
+            ? await ctx.storage.getUrl(submission.storageId)
+            : null,
           fileName: submission.fileName,
           byteLength: submission.byteLength,
           sha256: submission.sha256,

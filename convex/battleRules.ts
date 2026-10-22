@@ -23,6 +23,11 @@ export const LOBBY_TTL_MS = 2 * 60 * 60_000
 /** A beat exported as MP3 or WAV; a few minutes of 24-bit stereo WAV fits. */
 export const MAX_SUBMISSION_BYTES = 100 * 1024 * 1024
 /**
+ * Beats' audio is deleted this long after the results, to stay within
+ * Convex's file storage; players keep the copies their app downloaded.
+ */
+export const BEAT_RETENTION_MS = 24 * 60 * 60_000
+/**
  * The upload's audio type: from its Content-Type, or its file name when it
  * was uploaded without one; null when it isn't MP3 or WAV.
  */

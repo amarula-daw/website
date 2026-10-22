@@ -12,7 +12,7 @@ export const cleanUp = internalMutation({
       "usage",
       "running",
       "entitlements",
-      "analyticsEvents",
+      "analyticsDays",
     ] as const) {
       const expired = await ctx.db
         .query(table)

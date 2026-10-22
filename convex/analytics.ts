@@ -3,6 +3,7 @@ import { v } from "convex/values"
 
 import { components } from "./_generated/api"
 import { mutation } from "./_generated/server"
+import { dayOf, mergeEvents } from "./analyticsRollup"
 import { analyticsEventName } from "./schema"
 import { checkSecret, secretArg } from "./server"
 
@@ -21,7 +22,7 @@ const RETENTION = 400 * 24 * HOUR
 /** Most events one batch can hold; the route checks this too. */
 export const MAX_EVENTS = 500
 
-/** Stores a batch of the desktop app's analytics; false if the install sends too often. */
+/** Merges a batch of the desktop app's analytics into its days; false if the install sends too often. */
 export const record = mutation({
   args: {
     ...secretArg,
@@ -49,17 +50,38 @@ export const record = mutation({
       key: installId,
     })
     if (!ok) return false
-    const expiresAt = Date.now() + RETENTION
-    for (const event of events.slice(0, MAX_EVENTS))
-      await ctx.db.insert("analyticsEvents", {
-        installId,
-        ...event,
-        appVersion: app.version,
+
+    const days = new Map<number, typeof events>()
+    for (const event of events.slice(0, MAX_EVENTS)) {
+      const day = dayOf(event.at)
+      days.set(day, [...(days.get(day) ?? []), event])
+    }
+    for (const [day, dayEvents] of days) {
+      const row = await ctx.db
+        .query("analyticsDays")
+        .withIndex("by_installId_and_day_and_appVersion", (q) =>
+          q
+            .eq("installId", installId)
+            .eq("day", day)
+            .eq("appVersion", app.version)
+        )
+        .unique()
+      const fields = {
         platform: app.platform,
         os: app.os,
         arch: app.arch,
-        expiresAt,
-      })
+        events: mergeEvents(row?.events ?? [], dayEvents),
+      }
+      if (row) await ctx.db.patch("analyticsDays", row._id, fields)
+      else
+        await ctx.db.insert("analyticsDays", {
+          ...fields,
+          installId,
+          day,
+          appVersion: app.version,
+          expiresAt: day + RETENTION,
+        })
+    }
     return true
   },
 })
