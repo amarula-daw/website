@@ -13,6 +13,11 @@ export default async function DashboardPage({
     <AccountDashboard
       userId={userId}
       section={dashboardSection(search.section)}
+      purchased={
+        search.purchased === "license" || search.purchased === "awmaPack"
+          ? search.purchased
+          : null
+      }
     />
   )
 }

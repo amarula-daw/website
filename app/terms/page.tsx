@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import Link from "next/link"
 
 import { LegalPage } from "@/components/legal-page"
-import { dawPlans } from "@/lib/daw-subscription"
+import { awmaPack, dawLicense, dawPlans } from "@/lib/daw-subscription"
 import { legal } from "@/lib/legal"
 
 export const metadata: Metadata = {
@@ -10,9 +10,9 @@ export const metadata: Metadata = {
   description: "The terms for using Amarula, Awma and the Amarula website.",
 }
 
-const allowance = dawPlans
-  .map((plan) => `$${plan.awmaBudgetMicros / 1_000_000} (${plan.name})`)
-  .join(" or ")
+const allowance = `$${dawPlans[0]!.awmaBudgetMicros / 1_000_000}`
+const licensePrice = `$${dawLicense.priceCents / 100}`
+const packPrice = `$${awmaPack.priceCents / 100}`
 
 export default function TermsPage() {
   return (
@@ -27,20 +27,27 @@ export default function TermsPage() {
 
       <h2>Your account</h2>
       <p>
-        You need an account to use Amarula. Keep your sign-in details secure;
-        you’re responsible for what happens under your account. You must be at
-        least 13 years old, and old enough to agree to these terms where you
-        live; if you’re under 18, a parent or guardian must agree to them for
-        you and manage the subscription. Accounts are for one person and can’t
-        be shared or transferred.
+        You need an account to buy a license, subscribe, play beat battles or
+        use Awma; the free trial doesn’t need one. Keep your sign-in details
+        secure; you’re responsible for what happens under your account. You must
+        be at least 13 years old, and old enough to agree to these terms where
+        you live; if you’re under 18, a parent or guardian must agree to them
+        for you and manage the subscription. Accounts are for one person and
+        can’t be shared or transferred.
       </p>
 
-      <h2>Subscriptions and billing</h2>
+      <h2>Licenses, subscriptions and billing</h2>
       <ul>
         <li>
-          A subscription unlocks the Amarula app and includes Awma. It’s billed
-          monthly or yearly, at the price shown when you subscribe, through our
-          payment provider, and renews automatically until you cancel.
+          The Amarula app has a free trial, which can make and save projects but
+          not reopen saved ones. A license ({licensePrice}, paid once) unlocks
+          the app for good, including offline, with free updates for version 1.
+        </li>
+        <li>
+          The Awma + Cloud subscription covers Awma and the online features that
+          need our servers. It’s billed monthly or yearly, at the price shown
+          when you subscribe, through our payment provider, and renews
+          automatically until you cancel. Beat battles are free with an account.
         </li>
         <li>
           You can cancel at any time from your account on this website. Your
@@ -53,19 +60,19 @@ export default function TermsPage() {
           price starts with your next billing period.
         </li>
         <li>
-          The app checks your subscription when you sign in and regularly after
-          that. If it can’t reach us, it keeps working for a few days before it
-          needs to check again.
+          The app checks your license and subscription when you sign in and
+          regularly after that. Once it has found your license, the app keeps
+          working without reaching us.
         </li>
       </ul>
 
       <h2>Using the app</h2>
       <p>
-        While your subscription is active, we give you a personal,
+        With a license, or during the trial, we give you a personal,
         non-exclusive, non-transferable license to install and use the Amarula
         app on Macs you own or control. You may not copy, modify, reverse
-        engineer, or resell the app; get around its sign-in, subscription or
-        usage limits; or use Amarula to break the law or infringe anyone’s
+        engineer, or resell the app; get around its trial, license, subscription
+        or usage limits; or use Amarula to break the law or infringe anyone’s
         rights. Amarula is in early access: features may change, and you should
         keep backups of your projects.
       </p>
@@ -89,8 +96,10 @@ export default function TermsPage() {
         <li>
           Your subscription includes up to {allowance} of AI usage each month,
           measured by what your requests cost us, and Awma is rate limited to
-          keep the service available. When you reach the monthly allowance, Awma
-          stops until it resets.
+          keep the service available. Past the allowance, Awma packs (
+          {`${packPrice} each`}, paid once, kept until used) add more; without
+          one, Awma switches to a lighter model for a while and then stops until
+          the month resets.
         </li>
         <li>
           Don’t use Awma to create content that’s illegal or harmful, or in ways

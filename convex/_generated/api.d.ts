@@ -15,6 +15,7 @@ import type * as battleRules from "../battleRules.js";
 import type * as battles from "../battles.js";
 import type * as crons from "../crons.js";
 import type * as entitlements from "../entitlements.js";
+import type * as licenses from "../licenses.js";
 import type * as marketplace from "../marketplace.js";
 import type * as server from "../server.js";
 
@@ -32,6 +33,7 @@ declare const fullApi: ApiFromModules<{
   battles: typeof battles;
   crons: typeof crons;
   entitlements: typeof entitlements;
+  licenses: typeof licenses;
   marketplace: typeof marketplace;
   server: typeof server;
 }>;

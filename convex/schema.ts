@@ -3,9 +3,15 @@ import { v } from "convex/values"
 
 export const entitlement = v.object({
   active: v.boolean(),
-  // Optional: rows cached before there were two plans don't have it.
+  // Optional: rows cached before there were plans don't have it. Standard
+  // and Extended were the plans before Awma + Cloud; cached rows expire.
   plan: v.optional(
-    v.union(v.literal("standard"), v.literal("extended"), v.null())
+    v.union(
+      v.literal("awma"),
+      v.literal("standard"),
+      v.literal("extended"),
+      v.null()
+    )
   ),
   planPeriod: v.union(v.literal("month"), v.literal("annual"), v.null()),
   renewsAt: v.union(v.number(), v.null()),
@@ -133,12 +139,43 @@ export default defineSchema({
   usage: defineTable({
     userId: v.string(),
     windowStart: v.number(),
+    /** Spent on Awma's own model, against the allowance and then packs. */
     micros: v.number(),
+    /** Spent in lite mode, once the allowance and packs ran out. */
+    liteMicros: v.optional(v.number()),
     /** Kept a while past the window, for support questions (ms). */
     expiresAt: v.number(),
   })
     .index("by_user_window", ["userId", "windowStart"])
     .index("by_expiry", ["expiresAt"]),
+
+  /** What's left of the user's Awma packs, in micro-dollars; kept until used. */
+  awmaCredits: defineTable({ userId: v.string(), micros: v.number() }).index(
+    "by_user",
+    ["userId"]
+  ),
+
+  /** DAW licenses: bought once (or given to testers), kept for good. */
+  licenses: defineTable({
+    userId: v.string(),
+    grantedAt: v.number(),
+    source: v.union(v.literal("purchase"), v.literal("comp")),
+  }).index("by_user", ["userId"]),
+
+  /**
+   * One-time purchases fulfilled, by their Stripe Checkout session so each
+   * counts once, and by payment so a refund or dispute takes it back.
+   */
+  purchases: defineTable({
+    reference: v.string(),
+    userId: v.string(),
+    product: v.union(v.literal("license"), v.literal("awmaPack")),
+    at: v.number(),
+    paymentIntent: v.optional(v.string()),
+    revoked: v.optional(v.boolean()),
+  })
+    .index("by_reference", ["reference"])
+    .index("by_payment_intent", ["paymentIntent"]),
 
   /** Awma requests in flight, for the per-user concurrency limit. */
   running: defineTable({ userId: v.string(), expiresAt: v.number() })

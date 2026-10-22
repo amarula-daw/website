@@ -35,7 +35,7 @@ import { checkSecret, secretArg } from "./server"
 /*
  * Beat battles, called by the website's /api/battles routes for the desktop
  * app. The routes pass the user the Clerk OAuth token belongs to (userId)
- * and check the subscription; these functions check everything about the
+ * (battles are free with an account); these functions check everything about the
  * battle itself. Phases end on a schedule, or early once everyone is done.
  */
 

@@ -29,7 +29,7 @@ export type Usage = {
 
 /**
  * The cost of one response, in micro-dollars, rounded up. Haiku's prices
- * double past 100K input tokens; Sonnet's are flat.
+ * are five times as much past 100K input tokens; Sonnet's are flat.
  */
 export function costMicros(model: string, usage: Usage) {
   const price = PRICES[model]

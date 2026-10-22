@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server"
 
 import { api } from "@/convex/_generated/api"
+import { awmaMode, toLite, type AwmaMode } from "@/lib/awma/mode"
 import { costMicros, PRICES, type Usage } from "@/lib/awma/pricing"
 import { getEntitlement, type Entitlement } from "@/lib/desktop/entitlement"
 import { convexMutation, convexQuery } from "@/lib/desktop/convex"
@@ -10,8 +11,9 @@ import { getDawPlan } from "@/lib/daw-subscription"
  * Awma's requests to Claude, through the website: the desktop app's Awma
  * points the Claude Agent SDK here (ANTHROPIC_BASE_URL) with the user's
  * Clerk OAuth access token, and this forwards to Anthropic with the
- * server's own key. Nothing reaches Anthropic unless the user has the DAW
- * subscription and is within its limits.
+ * server's own key. Nothing reaches Anthropic unless the user has the
+ * subscription and is within its limits: the month's allowance, then their
+ * Awma packs, then lite mode (a lighter model, up to a cap).
  */
 
 /** The largest response one request may ask for. */
@@ -27,6 +29,7 @@ type Allowed = {
     plan: NonNullable<Entitlement["plan"]>
     usageWindow: { start: number; end: number }
   }
+  mode: AwmaMode
 }
 
 /** An error in the Messages API's own shape, so Claude Code shows the message. */
@@ -37,17 +40,19 @@ export function apiError(status: number, type: string, message: string) {
   )
 }
 
-/** How much of this month's allowance the user has spent, in micro-dollars. */
-export async function getUsageMicros(userId: string, windowStart: number) {
-  return await convexQuery(api.awma.usage, { userId, windowStart })
+/** Where the user stands this month: spent, spent in lite mode, and packs left (micro-dollars). */
+export async function getStanding(userId: string, windowStart: number) {
+  return await convexQuery(api.awma.standing, { userId, windowStart })
 }
 
-async function addUsage(allowed: Allowed, micros: number) {
+async function charge(allowed: Allowed, micros: number, lite: boolean) {
   if (micros <= 0) return
-  await convexMutation(api.awma.addUsage, {
+  await convexMutation(api.awma.charge, {
     userId: allowed.userId,
     window: allowed.entitlement.usageWindow,
+    budgetMicros: getDawPlan(allowed.entitlement.plan).awmaBudgetMicros,
     micros,
+    lite,
   })
 }
 
@@ -79,7 +84,7 @@ export async function authorize(
       error: apiError(
         403,
         "permission_error",
-        "Awma needs an active Amarula subscription. You can manage it on the Amarula website."
+        "Awma needs an Awma + Cloud subscription. You can subscribe on the Amarula website."
       ),
     }
 
@@ -92,20 +97,22 @@ export async function authorize(
       ),
     }
 
+  let mode: AwmaMode = "included"
   if (checkBudget) {
-    const used = await getUsageMicros(userId, entitlement.usageWindow.start)
-    if (used >= getDawPlan(entitlement.plan).awmaBudgetMicros)
+    const standing = await getStanding(userId, entitlement.usageWindow.start)
+    mode = awmaMode(standing, getDawPlan(entitlement.plan).awmaBudgetMicros)
+    if (mode === "paused")
       // Not a 429: Claude Code would keep retrying.
       return {
         error: apiError(
           400,
           "invalid_request_error",
-          `You've used this month's Awma allowance. It resets on ${formatDate(entitlement.usageWindow.end)}.`
+          `You've used this month's Awma, lite mode included. Buy an Awma pack on the Amarula website to carry on, or wait until it resets on ${formatDate(entitlement.usageWindow.end)}.`
         ),
       }
   }
 
-  return { userId, entitlement: entitlement as Allowed["entitlement"] }
+  return { userId, entitlement: entitlement as Allowed["entitlement"], mode }
 }
 
 /** Counts a request as running; returns how to release it, or null if too many are. */
@@ -229,6 +236,11 @@ export async function proxyMessages(request: Request) {
   if ("error" in allowed) return allowed.error
   const parsed = await readBody(request)
   if ("error" in parsed) return parsed.error
+  // Lite mode runs Awma's own requests on the lighter model; Claude Code's
+  // background calls already use it.
+  const lite = allowed.mode === "lite"
+  const body = lite ? toLite(parsed.body) : parsed.body
+  const model = String(body.model)
 
   const release = await startRequest(allowed.userId)
   if (!release)
@@ -243,7 +255,7 @@ export async function proxyMessages(request: Request) {
     const upstream = await fetch(`${ANTHROPIC_URL}/v1/messages${search}`, {
       method: "POST",
       headers: anthropicHeaders(request),
-      body: JSON.stringify(parsed.body),
+      body: JSON.stringify(body),
       signal: request.signal,
     })
 
@@ -253,9 +265,9 @@ export async function proxyMessages(request: Request) {
       if (value) headers.set(name, value)
     }
 
-    const charge = async (usage: Usage) => {
+    const settle = async (usage: Usage) => {
       try {
-        await addUsage(allowed, costMicros(parsed.model, usage))
+        await charge(allowed, costMicros(model, usage), lite)
       } finally {
         await release()
       }
@@ -274,14 +286,14 @@ export async function proxyMessages(request: Request) {
       return new Response(upstream.body, { status: upstream.status, headers })
     }
 
-    if (parsed.body.stream === true)
-      return new Response(meterStream(upstream.body, charge), {
+    if (body.stream === true)
+      return new Response(meterStream(upstream.body, settle), {
         status: upstream.status,
         headers,
       })
 
     const message = await upstream.json()
-    await charge(message.usage ?? {})
+    await settle(message.usage ?? {})
     return Response.json(message, { status: upstream.status, headers })
   } catch (error) {
     await release()
