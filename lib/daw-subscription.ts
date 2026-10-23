@@ -41,13 +41,6 @@ export const awmaPack = {
   awmaMicros: 6_000_000,
 }
 
-/**
- * Lite mode: once the allowance and any packs are used up, Awma carries on
- * with a lighter model (claude-haiku-5-5) up to this much a month, so it
- * slows down instead of stopping.
- */
-export const awmaLiteMicros = 1_000_000
-
 export function getDawPlan(key: DawPlanKey) {
   return dawPlans.find((plan) => plan.key === key)!
 }
@@ -56,17 +49,6 @@ export function getDawPlan(key: DawPlanKey) {
 export function dawPlanId(key: DawPlanKey) {
   const id = key === "awma" ? process.env.CLERK_AWMA_PLAN_ID : undefined
   return id || null
-}
-
-/**
- * The retired Standard and Extended plans' Clerk IDs, if still set: their
- * subscribers keep Awma, as Awma + Cloud, until those plans are archived.
- */
-export function legacyPlanIds() {
-  return [
-    process.env.CLERK_DAW_STANDARD_PLAN_ID,
-    process.env.CLERK_DAW_EXTENDED_PLAN_ID,
-  ].filter((id): id is string => Boolean(id))
 }
 
 export function matchesDawPlan(

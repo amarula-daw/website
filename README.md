@@ -32,11 +32,11 @@ For deployment, create the production instance of the same Clerk application, co
 Amarula's pricing (`lib/daw-subscription.ts`):
 
 - **The DAW:** a free trial that makes and saves projects but doesn't reopen saved ones, and a **USD $99 lifetime license** (paid once, works offline, free 1.x updates).
-- **Awma + Cloud:** USD $20/month or $200/year, with $7 of Awma usage a month; past that, Awma packs, then a lighter Awma (lite mode) until the month resets.
+- **Awma + Cloud:** USD $20/month or $200/year, with $7 of Awma usage a month; past that, Awma packs, then a pause until the month resets.
 - **Awma packs:** USD $10 once for $6 more Awma usage, used after the allowance, kept until used.
 - **Beat battles:** free with an account.
 
-The subscription is a Clerk Billing plan. In **ama-web → Billing → Subscription plans**, create the paid user plan with those monthly and yearly prices and free trial disabled, put its ID in `CLERK_AWMA_PLAN_ID`, and set `CLERK_BILLING_ENABLED=true` when checkout is ready. The dashboard verifies the plan's currency, prices, paid status and absence of a free trial before enabling its Clerk CheckoutButton. The Standard and Extended plans from before are retired: while `CLERK_DAW_STANDARD_PLAN_ID` and `CLERK_DAW_EXTENDED_PLAN_ID` are still set, their subscribers count as Awma + Cloud; archive them in Clerk and unset those once nobody is on them.
+The subscription is a Clerk Billing plan. In **ama-web → Billing → Subscription plans**, create the paid user plan with those monthly and yearly prices and free trial disabled, put its ID in `CLERK_AWMA_PLAN_ID`, and set `CLERK_BILLING_ENABLED=true` when checkout is ready. The dashboard verifies the plan's currency, prices, paid status and absence of a free trial before enabling its Clerk CheckoutButton. The Standard and Extended plans from before are retired: archive them in Clerk.
 
 The license and packs are one-time Stripe Checkout payments (`lib/stripe.ts`, `POST /api/checkout`), fulfilled by `POST /api/stripe/webhook` into Convex (`convex/licenses.ts`). Set `STRIPE_SECRET_KEY`, a webhook endpoint for `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `charge.refunded` and `charge.dispute.created` (a full refund or a dispute takes the license or pack back) with its `STRIPE_WEBHOOK_SECRET`, and one-time Prices in `STRIPE_LICENSE_PRICE_ID` ($99) and `STRIPE_AWMA_PACK_PRICE_ID` ($10); checkout refuses a price that isn't the agreed one, a second license, and packs for non-subscribers. Testers get a free license with `bunx convex run licenses:comp '{"userId": "user_…"}'`.
 
@@ -52,7 +52,7 @@ Profile & security uses inline forms rather than Clerk UserProfile: names, profi
 
 ## Desktop sign-in and Awma
 
-The desktop app signs in with this Clerk application (OAuth device authorization) and asks `GET /api/desktop/entitlement` for the license and the subscription. Awma's requests to Claude go through `/api/awma/v1/messages`, which checks the subscription, rate limits and the monthly Awma allowance (then packs, then lite mode), and holds the Anthropic API key. See [docs/desktop.md](docs/desktop.md) for the safeguards and setup (Convex, `ANTHROPIC_API_KEY`, and the desktop OAuth application).
+The desktop app signs in with this Clerk application (OAuth device authorization) and asks `GET /api/desktop/entitlement` for the license and the subscription. Awma's requests to Claude go through `/api/awma/v1/messages`, which checks the subscription, rate limits and the monthly Awma allowance (then packs), and holds the Anthropic API key. See [docs/desktop.md](docs/desktop.md) for the safeguards and setup (Convex, `ANTHROPIC_API_KEY`, and the desktop OAuth application).
 
 ## Beat battles
 

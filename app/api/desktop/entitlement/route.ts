@@ -1,6 +1,6 @@
 import { auth, clerkClient } from "@clerk/nextjs/server"
 
-import { awmaMode } from "@/lib/awma/mode"
+import { awmaMode, MIN_CREDIT_MICROS } from "@/lib/awma/mode"
 import { getStanding } from "@/lib/awma/proxy"
 import { getDawPlan } from "@/lib/daw-subscription"
 import { getEntitlement, getLicense } from "@/lib/desktop/entitlement"
@@ -58,7 +58,11 @@ export async function GET() {
           ? {
               usedCents: Math.min(cents(standing.micros), cents(budgetMicros)),
               limitCents: cents(budgetMicros),
-              creditCents: cents(standing.creditMicros),
+              // Less than a request's worth (or what's owed) can't be used.
+              creditCents:
+                standing.creditMicros >= MIN_CREDIT_MICROS
+                  ? cents(standing.creditMicros)
+                  : 0,
               mode: awmaMode(standing, budgetMicros),
               resetsAt: iso(window.end),
             }

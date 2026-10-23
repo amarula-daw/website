@@ -48,9 +48,13 @@ async function addCredits(ctx: MutationCtx, userId: string, micros: number) {
     .query("awmaCredits")
     .withIndex("by_user", (q) => q.eq("userId", userId))
     .unique()
+  // A refunded pack takes back only what's left of it.
   if (credits)
     await ctx.db.patch(credits._id, {
-      micros: Math.max(0, credits.micros + micros),
+      micros:
+        micros < 0
+          ? Math.max(Math.min(credits.micros, 0), credits.micros + micros)
+          : credits.micros + micros,
     })
   else if (micros > 0) await ctx.db.insert("awmaCredits", { userId, micros })
 }

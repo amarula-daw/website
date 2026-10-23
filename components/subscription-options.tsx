@@ -98,8 +98,8 @@ export function SubscriptionOptions({
               <p>
                 Or {dollars(plan.annualCents)} a year
                 {saving > 0 && <> (save {dollars(saving)})</>}. Includes up to{" "}
-                {dollars(plan.awmaBudgetMicros / 10_000)} of Awma usage a month,
-                then a lighter Awma until it resets.
+                {dollars(plan.awmaBudgetMicros / 10_000)} of Awma usage a month;
+                Awma packs add more.
               </p>
               {planId ? (
                 (["month", "annual"] as const).map((period) => (

@@ -34,9 +34,8 @@ export const limit = mutation({
 })
 
 /**
- * Where the user stands this window, in micro-dollars: spent on Awma's own
- * model (against the allowance, then packs), spent in lite mode, and what's
- * left of their packs.
+ * Where the user stands this window, in micro-dollars: spent (against the
+ * allowance, then packs), and what's left of their packs.
  */
 export const standing = query({
   args: { ...secretArg, userId: v.string(), windowStart: v.number() },
@@ -52,20 +51,15 @@ export const standing = query({
       .query("awmaCredits")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .unique()
-    return {
-      micros: row?.micros ?? 0,
-      liteMicros: row?.liteMicros ?? 0,
-      creditMicros: credits?.micros ?? 0,
-    }
+    return { micros: row?.micros ?? 0, creditMicros: credits?.micros ?? 0 }
   },
 })
 
 /**
- * Charges a response's cost. In lite mode it counts against lite mode's
- * cap; otherwise against the allowance, and whatever goes past the
- * allowance comes out of the user's packs, with what they can't cover
- * counted against lite mode's cap (so a big request on a nearly empty pack
- * isn't free).
+ * Charges a response's cost against the allowance; whatever goes past it
+ * comes out of the user's packs. What they can't cover (a request let in
+ * with a little left) is owed: the balance goes below zero, and the next
+ * pack pays it first.
  */
 export const charge = mutation({
   args: {
@@ -74,12 +68,8 @@ export const charge = mutation({
     window: v.object({ start: v.number(), end: v.number() }),
     budgetMicros: v.number(),
     micros: v.number(),
-    lite: v.boolean(),
   },
-  handler: async (
-    ctx,
-    { secret, userId, window, budgetMicros, micros, lite }
-  ) => {
+  handler: async (ctx, { secret, userId, window, budgetMicros, micros }) => {
     checkSecret(secret)
     if (micros <= 0) return
     const row = await ctx.db
@@ -89,31 +79,26 @@ export const charge = mutation({
       )
       .unique()
     const before = row?.micros ?? 0
-    const after = lite ? before : before + micros
-    let liteMicros = (row?.liteMicros ?? 0) + (lite ? micros : 0)
-
-    const overflow =
-      Math.max(0, after - budgetMicros) - Math.max(0, before - budgetMicros)
-    if (overflow > 0) {
-      const credits = await ctx.db
-        .query("awmaCredits")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
-        .unique()
-      const covered = Math.min(overflow, credits?.micros ?? 0)
-      if (credits && covered > 0)
-        await ctx.db.patch(credits._id, { micros: credits.micros - covered })
-      liteMicros += overflow - covered
-    }
-
-    if (row) await ctx.db.patch(row._id, { micros: after, liteMicros })
+    const after = before + micros
+    if (row) await ctx.db.patch(row._id, { micros: after })
     else
       await ctx.db.insert("usage", {
         userId,
         windowStart: window.start,
         micros: after,
-        liteMicros,
         expiresAt: window.end + USAGE_RETENTION,
       })
+
+    const overflow =
+      Math.max(0, after - budgetMicros) - Math.max(0, before - budgetMicros)
+    if (overflow <= 0) return
+    const credits = await ctx.db
+      .query("awmaCredits")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .unique()
+    if (credits)
+      await ctx.db.patch(credits._id, { micros: credits.micros - overflow })
+    else await ctx.db.insert("awmaCredits", { userId, micros: -overflow })
   },
 })
 

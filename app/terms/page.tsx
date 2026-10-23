@@ -98,8 +98,7 @@ export default function TermsPage() {
           measured by what your requests cost us, and Awma is rate limited to
           keep the service available. Past the allowance, Awma packs (
           {`${packPrice} each`}, paid once, kept until used) add more; without
-          one, Awma switches to a lighter model for a while and then stops until
-          the month resets.
+          one, Awma stops until the month resets.
         </li>
         <li>
           Don’t use Awma to create content that’s illegal or harmful, or in ways

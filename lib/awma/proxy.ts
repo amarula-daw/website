@@ -1,7 +1,7 @@
 import { auth } from "@clerk/nextjs/server"
 
 import { api } from "@/convex/_generated/api"
-import { awmaMode, toLite, type AwmaMode } from "@/lib/awma/mode"
+import { awmaMode } from "@/lib/awma/mode"
 import { costMicros, PRICES, type Usage } from "@/lib/awma/pricing"
 import { getEntitlement, type Entitlement } from "@/lib/desktop/entitlement"
 import { convexMutation, convexQuery } from "@/lib/desktop/convex"
@@ -13,7 +13,7 @@ import { getDawPlan } from "@/lib/daw-subscription"
  * Clerk OAuth access token, and this forwards to Anthropic with the
  * server's own key. Nothing reaches Anthropic unless the user has the
  * subscription and is within its limits: the month's allowance, then their
- * Awma packs, then lite mode (a lighter model, up to a cap).
+ * Awma packs.
  */
 
 /** The largest response one request may ask for. */
@@ -29,7 +29,6 @@ type Allowed = {
     plan: NonNullable<Entitlement["plan"]>
     usageWindow: { start: number; end: number }
   }
-  mode: AwmaMode
 }
 
 /** An error in the Messages API's own shape, so Claude Code shows the message. */
@@ -40,19 +39,18 @@ export function apiError(status: number, type: string, message: string) {
   )
 }
 
-/** Where the user stands this month: spent, spent in lite mode, and packs left (micro-dollars). */
+/** Where the user stands this month: spent, and packs left (micro-dollars). */
 export async function getStanding(userId: string, windowStart: number) {
   return await convexQuery(api.awma.standing, { userId, windowStart })
 }
 
-async function charge(allowed: Allowed, micros: number, lite: boolean) {
+async function charge(allowed: Allowed, micros: number) {
   if (micros <= 0) return
   await convexMutation(api.awma.charge, {
     userId: allowed.userId,
     window: allowed.entitlement.usageWindow,
     budgetMicros: getDawPlan(allowed.entitlement.plan).awmaBudgetMicros,
     micros,
-    lite,
   })
 }
 
@@ -97,22 +95,23 @@ export async function authorize(
       ),
     }
 
-  let mode: AwmaMode = "included"
   if (checkBudget) {
     const standing = await getStanding(userId, entitlement.usageWindow.start)
-    mode = awmaMode(standing, getDawPlan(entitlement.plan).awmaBudgetMicros)
-    if (mode === "paused")
+    if (
+      awmaMode(standing, getDawPlan(entitlement.plan).awmaBudgetMicros) ===
+      "paused"
+    )
       // Not a 429: Claude Code would keep retrying.
       return {
         error: apiError(
           400,
           "invalid_request_error",
-          `You've used this month's Awma, lite mode included. Buy an Awma pack on the Amarula website to carry on, or wait until it resets on ${formatDate(entitlement.usageWindow.end)}.`
+          `You've used this month's Awma. Buy an Awma pack on the Amarula website to carry on, or wait until it resets on ${formatDate(entitlement.usageWindow.end)}.`
         ),
       }
   }
 
-  return { userId, entitlement: entitlement as Allowed["entitlement"], mode }
+  return { userId, entitlement: entitlement as Allowed["entitlement"] }
 }
 
 /** Counts a request as running; returns how to release it, or null if too many are. */
@@ -236,11 +235,7 @@ export async function proxyMessages(request: Request) {
   if ("error" in allowed) return allowed.error
   const parsed = await readBody(request)
   if ("error" in parsed) return parsed.error
-  // Lite mode runs Awma's own requests on the lighter model; Claude Code's
-  // background calls already use it.
-  const lite = allowed.mode === "lite"
-  const body = lite ? toLite(parsed.body) : parsed.body
-  const model = String(body.model)
+  const { body, model } = parsed
 
   const release = await startRequest(allowed.userId)
   if (!release)
@@ -267,7 +262,7 @@ export async function proxyMessages(request: Request) {
 
     const settle = async (usage: Usage) => {
       try {
-        await charge(allowed, costMicros(model, usage), lite)
+        await charge(allowed, costMicros(model, usage))
       } finally {
         await release()
       }

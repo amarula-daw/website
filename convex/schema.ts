@@ -3,16 +3,9 @@ import { v } from "convex/values"
 
 export const entitlement = v.object({
   active: v.boolean(),
-  // Optional: rows cached before there were plans don't have it. Standard
-  // and Extended were the plans before Awma + Cloud; cached rows expire.
-  plan: v.optional(
-    v.union(
-      v.literal("awma"),
-      v.literal("standard"),
-      v.literal("extended"),
-      v.null()
-    )
-  ),
+  // A cache: rows from before the current plans (another plan, or none) are
+  // checked again, so they're allowed here until they expire.
+  plan: v.optional(v.union(v.string(), v.null())),
   planPeriod: v.union(v.literal("month"), v.literal("annual"), v.null()),
   renewsAt: v.union(v.number(), v.null()),
   endsAt: v.union(v.number(), v.null()),
@@ -139,17 +132,15 @@ export default defineSchema({
   usage: defineTable({
     userId: v.string(),
     windowStart: v.number(),
-    /** Spent on Awma's own model, against the allowance and then packs. */
+    /** Spent, against the allowance and then packs. */
     micros: v.number(),
-    /** Spent in lite mode, once the allowance and packs ran out. */
-    liteMicros: v.optional(v.number()),
     /** Kept a while past the window, for support questions (ms). */
     expiresAt: v.number(),
   })
     .index("by_user_window", ["userId", "windowStart"])
     .index("by_expiry", ["expiresAt"]),
 
-  /** What's left of the user's Awma packs, in micro-dollars; kept until used. */
+  /** What's left of the user's Awma packs, in micro-dollars; kept until used. Below zero, what's owed. */
   awmaCredits: defineTable({ userId: v.string(), micros: v.number() }).index(
     "by_user",
     ["userId"]

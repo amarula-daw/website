@@ -2,12 +2,7 @@ import { clerkClient } from "@clerk/nextjs/server"
 
 import { api } from "@/convex/_generated/api"
 import { convexMutation, convexQuery } from "@/lib/desktop/convex"
-import {
-  dawPlanId,
-  dawPlans,
-  legacyPlanIds,
-  type DawPlanKey,
-} from "@/lib/daw-subscription"
+import { dawPlanId, dawPlans, type DawPlanKey } from "@/lib/daw-subscription"
 
 /** How long a subscription check is reused before asking Clerk again. */
 const CACHE_MS = 5 * 60 * 1000
@@ -62,7 +57,6 @@ async function checkClerk(userId: string, now: number): Promise<Entitlement> {
     usageWindow: null,
   }
   const planIds = new Map<string, DawPlanKey>()
-  for (const id of legacyPlanIds()) planIds.set(id, "awma")
   for (const plan of dawPlans) {
     const id = dawPlanId(plan.key)
     if (id) planIds.set(id, plan.key)
@@ -117,7 +111,6 @@ export async function getLicense(userId: string) {
 export async function getEntitlement(userId: string): Promise<Entitlement> {
   const now = Date.now()
   const cached = await convexQuery(api.entitlements.get, { userId })
-  // Rows cached before the current plans (or without a plan) are checked again.
   const plan = cached?.plan
   if (
     cached &&
