@@ -15,6 +15,7 @@ const product = (
   formats: ["VST3"],
   platforms: ["macOS"],
   requires: null,
+  effectTypes: [],
   priceCents: 0,
   purchase: { kind: "free" },
   sourceUrl: null,

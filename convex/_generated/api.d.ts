@@ -8,11 +8,14 @@
  * @module
  */
 
+import type * as analytics from "../analytics.js";
+import type * as analyticsRollup from "../analyticsRollup.js";
 import type * as awma from "../awma.js";
 import type * as battleRules from "../battleRules.js";
 import type * as battles from "../battles.js";
 import type * as crons from "../crons.js";
 import type * as entitlements from "../entitlements.js";
+import type * as licenses from "../licenses.js";
 import type * as marketplace from "../marketplace.js";
 import type * as server from "../server.js";
 
@@ -23,11 +26,14 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  analytics: typeof analytics;
+  analyticsRollup: typeof analyticsRollup;
   awma: typeof awma;
   battleRules: typeof battleRules;
   battles: typeof battles;
   crons: typeof crons;
   entitlements: typeof entitlements;
+  licenses: typeof licenses;
   marketplace: typeof marketplace;
   server: typeof server;
 }>;

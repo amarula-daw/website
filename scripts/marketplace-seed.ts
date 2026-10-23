@@ -7,6 +7,12 @@
  * Images are copied into Convex storage. Free products are listed once their
  * zip (or folder, zipped here) is in the folder; unchanged files aren't
  * uploaded again. Needs CONVEX_SERVER_SECRET (.env.local is read).
+ *
+ * Downloads are kept within Convex's free plan (1 GB of files, and 1 GB of
+ * downloads a month, shared with battle beats): a zip over MAX_DOWNLOAD_BYTES,
+ * or past MAX_TOTAL_BYTES for all downloads, isn't stored, and its product is
+ * taken off the marketplace (deleting a stored copy) until it's hosted
+ * elsewhere.
  */
 import { ConvexHttpClient } from "convex/browser"
 import { spawnSync } from "node:child_process"
@@ -27,6 +33,25 @@ if (!url || !secret) {
 }
 const convex = new ConvexHttpClient(url)
 const folder = process.argv[2]
+
+const MB = 1024 * 1024
+const MAX_DOWNLOAD_BYTES = 25 * MB
+const MAX_TOTAL_BYTES = 400 * MB
+/** Bytes of downloads kept so far, in listing order. */
+let totalBytes = 0
+
+/** Whether a download of this size can be stored, counting it if so. */
+function fits(byteLength: number) {
+  if (
+    byteLength > MAX_DOWNLOAD_BYTES ||
+    totalBytes + byteLength > MAX_TOTAL_BYTES
+  )
+    return false
+  totalBytes += byteLength
+  return true
+}
+
+const megabytes = (bytes: number) => `${(bytes / 1e6).toFixed(1)} MB`
 
 const normalize = (name: string) =>
   name
@@ -110,13 +135,14 @@ try {
     let published = true
     if (download) {
       const zip = await findZip(download.match, scratch)
-      if (zip) {
+      const size = zip ? (await stat(zip)).size : 0
+      if (zip && fits(size)) {
         const bytes = new Uint8Array(await readFile(zip))
         const sha256 = createHash("sha256").update(bytes).digest("hex")
         const same = existing?.artifacts.find((item) => item.sha256 === sha256)
         artifacts = [
           {
-            platform: "any" as const,
+            platform: download.platform ?? ("any" as const),
             install: download.install,
             storageId:
               same?.storageId ??
@@ -127,12 +153,23 @@ try {
           },
         ]
         console.log(
-          `${seed.slug}: ${same ? "unchanged" : "uploaded"} ${basename(zip)} (${(bytes.byteLength / 1e6).toFixed(1)} MB)`
+          `${seed.slug}: ${same ? "unchanged" : "uploaded"} ${basename(zip)} (${megabytes(bytes.byteLength)})`
         )
       } else {
-        // Listed once there's something to download.
-        published = Boolean(existing?.artifacts.length)
-        if (!published) console.log(`${seed.slug}: no zip yet, not listed`)
+        if (zip)
+          console.log(
+            `${seed.slug}: ${basename(zip)} (${megabytes(size)}) is too big to store in Convex`
+          )
+        // Keeps what's stored if it still fits; listed once there's something to download.
+        const kept = zip
+          ? []
+          : (existing?.artifacts ?? []).filter((item) => fits(item.byteLength))
+        if (kept.length !== (existing?.artifacts.length ?? 0)) {
+          artifacts = kept
+          console.log(`${seed.slug}: removed stored downloads that don't fit`)
+        }
+        published = kept.length > 0
+        if (!published) console.log(`${seed.slug}: no download, not listed`)
       }
     }
 
@@ -140,6 +177,7 @@ try {
       secret,
       product: {
         ...fields,
+        effectTypes: fields.effectTypes ?? [],
         purchase: storeUrl
           ? { kind: "external", url: storeUrl }
           : { kind: "free" },

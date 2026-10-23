@@ -7,10 +7,10 @@ import { dawPlanId, dawPlans, type DawPlanKey } from "@/lib/daw-subscription"
 /** How long a subscription check is reused before asking Clerk again. */
 const CACHE_MS = 5 * 60 * 1000
 
-/** Whether a user may use the DAW and Awma, and their usage window. */
+/** Whether a user has the subscription (Awma and the cloud), and their usage window. */
 export type Entitlement = {
   active: boolean
-  /** Which DAW plan; null without a subscription. */
+  /** Which plan; null without a subscription. */
   plan: DawPlanKey | null
   planPeriod: "month" | "annual" | null
   /** When the subscription renews, or ends if it was canceled (ms). */
@@ -46,7 +46,7 @@ export function usageWindowAt(periodStart: number, now: number) {
   }
 }
 
-/** Asks Clerk Billing whether the user has a DAW plan (CLERK_DAW_STANDARD_PLAN_ID, CLERK_DAW_EXTENDED_PLAN_ID). */
+/** Asks Clerk Billing whether the user has a plan (CLERK_AWMA_PLAN_ID). */
 async function checkClerk(userId: string, now: number): Promise<Entitlement> {
   const inactive: Entitlement = {
     active: false,
@@ -102,16 +102,22 @@ async function checkClerk(userId: string, now: number): Promise<Entitlement> {
   }
 }
 
-/** The user's entitlement, cached for a few minutes. */
+/** The user's DAW license, if they have one (bought once, kept for good). */
+export async function getLicense(userId: string) {
+  return await convexQuery(api.licenses.get, { userId })
+}
+
+/** The user's subscription, cached for a few minutes. */
 export async function getEntitlement(userId: string): Promise<Entitlement> {
   const now = Date.now()
   const cached = await convexQuery(api.entitlements.get, { userId })
+  const plan = cached?.plan
   if (
     cached &&
-    cached.plan !== undefined &&
+    (plan === null || dawPlans.some((known) => known.key === plan)) &&
     (!cached.usageWindow || cached.usageWindow.end > now)
   )
-    return { ...cached, plan: cached.plan }
+    return { ...cached, plan: plan as DawPlanKey | null }
   const entitlement = await checkClerk(userId, now)
   await convexMutation(api.entitlements.set, {
     userId,

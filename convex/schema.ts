@@ -3,10 +3,9 @@ import { v } from "convex/values"
 
 export const entitlement = v.object({
   active: v.boolean(),
-  // Optional: rows cached before there were two plans don't have it.
-  plan: v.optional(
-    v.union(v.literal("standard"), v.literal("extended"), v.null())
-  ),
+  // A cache: rows from before the current plans (another plan, or none) are
+  // checked again, so they're allowed here until they expire.
+  plan: v.optional(v.union(v.string(), v.null())),
   planPeriod: v.union(v.literal("month"), v.literal("annual"), v.null()),
   renewsAt: v.union(v.number(), v.null()),
   endsAt: v.union(v.number(), v.null()),
@@ -15,6 +14,15 @@ export const entitlement = v.object({
     v.null()
   ),
 })
+
+/** Keep in sync with AnalyticsEvent in the desktop app's packages/protocol. */
+export const analyticsEventName = v.union(
+  v.literal("app.launched"),
+  v.literal("app.crashed"),
+  v.literal("command.used"),
+  v.literal("action.used"),
+  v.literal("usage.summary")
+)
 
 export const productCategory = v.union(
   v.literal("Plugins"),
@@ -27,6 +35,19 @@ export const productFormat = v.union(
   v.literal("AU"),
   v.literal("WAV"),
   v.literal("Preset")
+)
+/**
+ * What an effect does, so the desktop app (and Awma) can find, say, a
+ * reverb. Keep in sync with EFFECT_TYPES in the desktop app's
+ * packages/protocol.
+ */
+export const effectType = v.union(
+  v.literal("eq"),
+  v.literal("compressor"),
+  v.literal("limiter"),
+  v.literal("reverb"),
+  v.literal("delay"),
+  v.literal("filter")
 )
 export const productPlatform = v.union(
   v.literal("macOS"),
@@ -65,6 +86,8 @@ export const productFields = {
   formats: v.array(productFormat),
   platforms: v.array(productPlatform),
   requires: v.union(v.string(), v.null()),
+  /** For effect plugins: what they do. Optional: older listings don't have it. */
+  effectTypes: v.optional(v.array(effectType)),
   /** In US cents; 0 when free. For external purchases, the seller's list price when it was added. */
   priceCents: v.number(),
   purchase,
@@ -109,6 +132,7 @@ export default defineSchema({
   usage: defineTable({
     userId: v.string(),
     windowStart: v.number(),
+    /** Spent, against the allowance and then packs. */
     micros: v.number(),
     /** Kept a while past the window, for support questions (ms). */
     expiresAt: v.number(),
@@ -116,9 +140,68 @@ export default defineSchema({
     .index("by_user_window", ["userId", "windowStart"])
     .index("by_expiry", ["expiresAt"]),
 
+  /** What's left of the user's Awma packs, in micro-dollars; kept until used. Below zero, what's owed. */
+  awmaCredits: defineTable({ userId: v.string(), micros: v.number() }).index(
+    "by_user",
+    ["userId"]
+  ),
+
+  /** DAW licenses: bought once (or given to testers), kept for good. */
+  licenses: defineTable({
+    userId: v.string(),
+    grantedAt: v.number(),
+    source: v.union(v.literal("purchase"), v.literal("comp")),
+  }).index("by_user", ["userId"]),
+
+  /**
+   * One-time purchases fulfilled, by their Stripe Checkout session so each
+   * counts once, and by payment so a refund or dispute takes it back.
+   */
+  purchases: defineTable({
+    reference: v.string(),
+    userId: v.string(),
+    product: v.union(v.literal("license"), v.literal("awmaPack")),
+    at: v.number(),
+    paymentIntent: v.optional(v.string()),
+    revoked: v.optional(v.boolean()),
+  })
+    .index("by_reference", ["reference"])
+    .index("by_payment_intent", ["paymentIntent"]),
+
   /** Awma requests in flight, for the per-user concurrency limit. */
   running: defineTable({ userId: v.string(), expiresAt: v.number() })
     .index("by_user", ["userId", "expiresAt"])
+    .index("by_expiry", ["expiresAt"]),
+
+  /**
+   * The desktop app's anonymous, opt-in usage analytics (docs/analytics.md):
+   * one row per install, UTC day and app version, merging that day's events
+   * (convex/analyticsRollup.ts). installId is random per install and
+   * unrelated to the account.
+   */
+  analyticsDays: defineTable({
+    installId: v.string(),
+    /** The start of the UTC day (ms). */
+    day: v.number(),
+    appVersion: v.string(),
+    platform: v.string(),
+    os: v.string(),
+    arch: v.string(),
+    events: v.array(
+      v.object({
+        name: analyticsEventName,
+        labels: v.record(v.string(), v.union(v.string(), v.boolean())),
+        count: v.number(),
+        values: v.record(v.string(), v.number()),
+      })
+    ),
+    expiresAt: v.number(),
+  })
+    .index("by_installId_and_day_and_appVersion", [
+      "installId",
+      "day",
+      "appVersion",
+    ])
     .index("by_expiry", ["expiresAt"]),
 
   /** Subscription checks, reused for a few minutes before asking Clerk again. */
@@ -174,7 +257,8 @@ export default defineSchema({
   battleSubmissions: defineTable({
     battleId: v.id("battles"),
     userId: v.string(),
-    storageId: v.id("_storage"),
+    /** The beat's audio; null once it's deleted after the battle. */
+    storageId: v.union(v.id("_storage"), v.null()),
     fileName: v.string(),
     byteLength: v.number(),
     sha256: v.string(),

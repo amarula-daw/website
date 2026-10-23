@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server"
 
 import { api } from "@/convex/_generated/api"
+import { awmaMode } from "@/lib/awma/mode"
 import { costMicros, PRICES, type Usage } from "@/lib/awma/pricing"
 import { getEntitlement, type Entitlement } from "@/lib/desktop/entitlement"
 import { convexMutation, convexQuery } from "@/lib/desktop/convex"
@@ -10,8 +11,9 @@ import { getDawPlan } from "@/lib/daw-subscription"
  * Awma's requests to Claude, through the website: the desktop app's Awma
  * points the Claude Agent SDK here (ANTHROPIC_BASE_URL) with the user's
  * Clerk OAuth access token, and this forwards to Anthropic with the
- * server's own key. Nothing reaches Anthropic unless the user has the DAW
- * subscription and is within its limits.
+ * server's own key. Nothing reaches Anthropic unless the user has the
+ * subscription and is within its limits: the month's allowance, then their
+ * Awma packs.
  */
 
 /** The largest response one request may ask for. */
@@ -37,16 +39,17 @@ export function apiError(status: number, type: string, message: string) {
   )
 }
 
-/** How much of this month's allowance the user has spent, in micro-dollars. */
-export async function getUsageMicros(userId: string, windowStart: number) {
-  return await convexQuery(api.awma.usage, { userId, windowStart })
+/** Where the user stands this month: spent, and packs left (micro-dollars). */
+export async function getStanding(userId: string, windowStart: number) {
+  return await convexQuery(api.awma.standing, { userId, windowStart })
 }
 
-async function addUsage(allowed: Allowed, micros: number) {
+async function charge(allowed: Allowed, micros: number) {
   if (micros <= 0) return
-  await convexMutation(api.awma.addUsage, {
+  await convexMutation(api.awma.charge, {
     userId: allowed.userId,
     window: allowed.entitlement.usageWindow,
+    budgetMicros: getDawPlan(allowed.entitlement.plan).awmaBudgetMicros,
     micros,
   })
 }
@@ -79,7 +82,7 @@ export async function authorize(
       error: apiError(
         403,
         "permission_error",
-        "Awma needs an active Amarula subscription. You can manage it on the Amarula website."
+        "Awma needs an Awma + Cloud subscription. You can subscribe on the Amarula website."
       ),
     }
 
@@ -93,14 +96,17 @@ export async function authorize(
     }
 
   if (checkBudget) {
-    const used = await getUsageMicros(userId, entitlement.usageWindow.start)
-    if (used >= getDawPlan(entitlement.plan).awmaBudgetMicros)
+    const standing = await getStanding(userId, entitlement.usageWindow.start)
+    if (
+      awmaMode(standing, getDawPlan(entitlement.plan).awmaBudgetMicros) ===
+      "paused"
+    )
       // Not a 429: Claude Code would keep retrying.
       return {
         error: apiError(
           400,
           "invalid_request_error",
-          `You've used this month's Awma allowance. It resets on ${formatDate(entitlement.usageWindow.end)}.`
+          `You've used this month's Awma. Buy an Awma pack on the Amarula website to carry on, or wait until it resets on ${formatDate(entitlement.usageWindow.end)}.`
         ),
       }
   }
@@ -229,6 +235,7 @@ export async function proxyMessages(request: Request) {
   if ("error" in allowed) return allowed.error
   const parsed = await readBody(request)
   if ("error" in parsed) return parsed.error
+  const { body, model } = parsed
 
   const release = await startRequest(allowed.userId)
   if (!release)
@@ -243,7 +250,7 @@ export async function proxyMessages(request: Request) {
     const upstream = await fetch(`${ANTHROPIC_URL}/v1/messages${search}`, {
       method: "POST",
       headers: anthropicHeaders(request),
-      body: JSON.stringify(parsed.body),
+      body: JSON.stringify(body),
       signal: request.signal,
     })
 
@@ -253,9 +260,9 @@ export async function proxyMessages(request: Request) {
       if (value) headers.set(name, value)
     }
 
-    const charge = async (usage: Usage) => {
+    const settle = async (usage: Usage) => {
       try {
-        await addUsage(allowed, costMicros(parsed.model, usage))
+        await charge(allowed, costMicros(model, usage))
       } finally {
         await release()
       }
@@ -274,14 +281,14 @@ export async function proxyMessages(request: Request) {
       return new Response(upstream.body, { status: upstream.status, headers })
     }
 
-    if (parsed.body.stream === true)
-      return new Response(meterStream(upstream.body, charge), {
+    if (body.stream === true)
+      return new Response(meterStream(upstream.body, settle), {
         status: upstream.status,
         headers,
       })
 
     const message = await upstream.json()
-    await charge(message.usage ?? {})
+    await settle(message.usage ?? {})
     return Response.json(message, { status: upstream.status, headers })
   } catch (error) {
     await release()

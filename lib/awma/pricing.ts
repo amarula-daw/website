@@ -9,7 +9,8 @@ type Price = { input: number; output: number; cacheRead: number }
 
 /** Dollars per million tokens. Only these models are allowed through the proxy. */
 export const PRICES: Record<string, Price> = {
-  // Awma's own model.
+  // Awma's own model; keep in sync with AWMA_MODEL in the desktop app's
+  // apps/agent/src/session.ts.
   "claude-sonnet-5-5": { input: 2, output: 10, cacheRead: 0.2 },
   // Claude Code's quick background calls (titles, summaries).
   "claude-haiku-5-5": { input: 0.1, output: 0.5, cacheRead: 0.01 },
@@ -29,7 +30,7 @@ export type Usage = {
 
 /**
  * The cost of one response, in micro-dollars, rounded up. Haiku's prices
- * double past 100K input tokens; Sonnet's are flat.
+ * are five times as much past 100K input tokens; Sonnet's are flat.
  */
 export function costMicros(model: string, usage: Usage) {
   const price = PRICES[model]

@@ -3,12 +3,17 @@ import { cronJobs } from "convex/server"
 import { internal } from "./_generated/api"
 import { internalMutation } from "./_generated/server"
 
-/** Deletes expired usage, running requests and cached entitlements. */
+/** Deletes expired usage, running requests, cached entitlements and analytics. */
 export const cleanUp = internalMutation({
   args: {},
   handler: async (ctx) => {
     const now = Date.now()
-    for (const table of ["usage", "running", "entitlements"] as const) {
+    for (const table of [
+      "usage",
+      "running",
+      "entitlements",
+      "analyticsDays",
+    ] as const) {
       const expired = await ctx.db
         .query(table)
         .withIndex("by_expiry", (q) => q.lt("expiresAt", now))
