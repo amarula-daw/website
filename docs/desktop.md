@@ -33,7 +33,7 @@ A request that starts under the allowance can overshoot it by its own cost (at m
 
 ## Setup
 
-1. **Convex:** run `bunx convex dev` to link a project (it writes `CONVEX_DEPLOYMENT` and `NEXT_PUBLIC_CONVEX_URL` to `.env.local`). Generate a secret (`openssl rand -hex 32`) and set it as `CONVEX_SERVER_SECRET` both in Convex (`bunx convex env set CONVEX_SERVER_SECRET …`, once per deployment) and in the website's environment; the Convex functions are public, and refuse calls without it. For production, set the Vercel build command to `bunx convex deploy --cmd 'bun run build'` with a `CONVEX_DEPLOY_KEY` from the Convex dashboard.
+1. **Convex:** run `bunx convex dev` to link a project (it writes `CONVEX_DEPLOYMENT` and `NEXT_PUBLIC_CONVEX_URL` to `.env.local`). Generate a secret (`openssl rand -hex 32`) and set it as `CONVEX_SERVER_SECRET` both in Convex (`bunx convex env set CONVEX_SERVER_SECRET …`, once per deployment) and in the website's environment; the Convex functions are public, and refuse calls without it. The build command is in `vercel.json`: production runs `bunx convex deploy --cmd 'bun run build'` with a `CONVEX_DEPLOY_KEY` from the Convex dashboard; previews just build, against the Convex deployment in their `NEXT_PUBLIC_CONVEX_URL` (the development one), so they don't need a deploy key.
 2. **Anthropic:** set `ANTHROPIC_API_KEY` (a key for a workspace dedicated to Awma, with a spend limit in the Anthropic Console as a last line of defence).
 3. **Clerk OAuth application for the desktop app:** a public client with the device authorization grant and the scopes `openid profile email offline_access`. In the Clerk Dashboard → OAuth applications, or with the Clerk CLI (secret key in the environment):
 
